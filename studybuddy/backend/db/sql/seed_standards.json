@@ -1,0 +1,20 @@
+[
+  {
+    "subject": "math",
+    "grade": 1,
+    "domain": "Operations & Algebraic Thinking",
+    "sub_domain": "Addition",
+    "standard_ref": "CCSS.MATH.CONTENT.1.OA.C.6",
+    "title": "Add and subtract within 20",
+    "description": "Fluently add and subtract within 20 using strategies."
+  },
+  {
+    "subject": "reading",
+    "grade": 1,
+    "domain": "Key Ideas and Details",
+    "sub_domain": "Comprehension",
+    "standard_ref": "CCSS.ELA-LITERACY.RL.1.2",
+    "title": "Retell stories",
+    "description": "Retell stories, including key details, and demonstrate understanding of their central message."
+  }
+]
