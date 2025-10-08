@@ -6,6 +6,12 @@ from typing import Iterable, Protocol
 
 from .memory import MemoryRepository, build_memory_repository
 
+try:
+    from .postgres_repo import PostgresRepository, build_postgres_repository
+except ImportError:
+    PostgresRepository = None  # type: ignore[assignment]
+    build_postgres_repository = None  # type: ignore[assignment]
+
 try:  # pragma: no cover - optional import for Supabase mode
     from .supabase_repo import SupabaseRepository, build_supabase_repository
 except ImportError:  # pragma: no cover
@@ -77,11 +83,24 @@ class Repository(Protocol):
 
 
 def build_repository() -> Repository:
+    import logging
+    logger = logging.getLogger(__name__)
+
     mode = os.getenv("STUDYBUDDY_DATA_MODE", "memory").lower()
+    logger.warning(f"Building repository with mode: {mode}")
+
     if mode == "supabase":
-        if build_supabase_repository is None:
-            raise RuntimeError("Supabase dependencies are not installed")
-        return build_supabase_repository()
+        if build_postgres_repository is None:
+            raise RuntimeError("PostgreSQL dependencies (psycopg2) are not installed")
+        try:
+            repo = build_postgres_repository()
+            logger.warning(f"Successfully initialized PostgreSQL repository!")
+            return repo
+        except Exception as e:
+            logger.error(f"Failed to initialize PostgreSQL repository: {e}. Falling back to memory mode.")
+            return build_memory_repository()
+
+    logger.warning(f"Using memory repository")
     return build_memory_repository()
 
 
