@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>studybuddy</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="hero">
+        <h1>studybuddy</h1>
+        <p class="tagline">Common Core-aligned practice that grows with your learner.</p>
+      </header>
+
+      <section id="auth-section" class="card auth-card">
+        <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+          <button type="button" id="auth-tab-login" class="tab active" role="tab" aria-selected="true">
+            Log in
+          </button>
+          <button type="button" id="auth-tab-signup" class="tab" role="tab" aria-selected="false">
+            Sign up
+          </button>
+        </div>
+        <form id="auth-form" class="form">
+          <h2 id="auth-title">Welcome back</h2>
+          <p id="auth-subtitle" class="muted">Log in to pick up where you left off.</p>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" id="auth-email" autocomplete="email" required />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" id="auth-password" autocomplete="current-password" minlength="6" required />
+          </label>
+          <p id="auth-error" class="error" role="alert" hidden></p>
+          <button type="submit" id="auth-submit">Log in</button>
+        </form>
+      </section>
+
+      <section id="app-section" class="dashboard" hidden>
+        <header class="dashboard-header">
+          <div class="parent-badge">
+            <span class="label">Logged in as</span>
+            <strong id="parent-email"></strong>
+            <span id="child-count" class="muted"></span>
+          </div>
+          <button type="button" id="logout-btn" class="secondary">Log out</button>
+        </header>
+
+        <div class="dashboard-grid">
+          <article class="card" id="children-panel">
+            <header>
+              <h2>Children</h2>
+              <p class="muted">Add a learner, then select to start a session.</p>
+            </header>
+            <ul id="children-list" class="children-list"></ul>
+            <form id="child-form" class="form-inline">
+              <label class="field">
+                <span>Name</span>
+                <input type="text" id="child-name" required />
+              </label>
+              <label class="field">
+                <span>Grade</span>
+                <input type="number" id="child-grade" min="0" max="12" />
+              </label>
+              <label class="field">
+                <span>ZIP</span>
+                <input type="text" id="child-zip" maxlength="10" />
+              </label>
+              <button type="submit">Add child</button>
+            </form>
+            <p id="child-feedback" class="muted" role="status"></p>
+          </article>
+
+          <article class="card" id="practice-panel">
+            <header>
+              <h2>Practice session</h2>
+              <p class="muted">Choose a subject to fetch adaptive questions.</p>
+            </header>
+            <div class="practice-controls">
+              <label class="field">
+                <span>Subject</span>
+                <select id="subject-select">
+                  <option value="math">Math</option>
+                  <option value="reading">Reading</option>
+                  <option value="science">Science</option>
+                  <option value="writing">Writing</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Topic (optional)</span>
+                <input type="text" id="topic-input" placeholder="Fractions, phonics…" />
+              </label>
+              <button type="button" id="fetch-question-btn">Fetch questions</button>
+            </div>
+            <p id="practice-empty" class="muted">Select a child to begin.</p>
+            <section id="question-card" class="question-card" hidden>
+              <p id="question-topic" class="muted"></p>
+              <h3 id="question-stem"></h3>
+              <ul id="question-options" class="options"></ul>
+              <p id="practice-feedback" class="muted" role="status"></p>
+            </section>
+          </article>
+
+          <article class="card" id="progress-panel">
+            <header>
+              <h2>Progress</h2>
+              <p class="muted">Track streaks and accuracy by subject.</p>
+            </header>
+            <dl id="progress-summary" class="progress-summary"></dl>
+            <ul id="progress-subjects" class="progress-subjects"></ul>
+          </article>
+
+          <article class="card" id="standards-panel">
+            <header>
+              <h2>Standards reference</h2>
+              <p class="muted">Browse Common Core-aligned benchmarks.</p>
+            </header>
+            <ul id="standards-list" class="standards-list"></ul>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script src="/static/js/auth.js" type="module"></script>
+  </body>
+</html>

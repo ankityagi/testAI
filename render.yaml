@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: studybuddy-backend
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn studybuddy.backend.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STUDYBUDDY_FRONTEND_ORIGIN
+        value: "*"
