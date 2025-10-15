@@ -1,104 +1,167 @@
 # CLAUDE CHECKPOINT
 
-**Date**: October 6, 2025
-**Session Context**: Debugging Supabase signup issue where values are not being saved in the database
+**Date**: October 12, 2025
+**Session Context**: Implementing subtopic-based question generation and management system
 
-## Problem Summary
-The signup endpoint works (returns 201 with parent data), but user data is not being persisted to the Supabase database. This affects the static page signup functionality.
+## Current Problem / Goal 🎯
+
+**Original Issue**: Question generation happening every time user requests questions, regardless of question bank inventory. Also, `topic=None` queries were failing because picker was looking for questions with NULL topic.
+
+**Solution Being Implemented**:
+1. Pre-generate static subtopics for all K-12 grades (math & reading)
+2. Store subtopics in database as seed data
+3. Update question picker to select questions by subtopic
+4. Only generate new questions when subtopic inventory is low (< MIN_STOCK_THRESHOLD)
+5. Include subtopic in OpenAI prompts for more targeted question generation
 
 ## What We Accomplished ✅
 
-### Database Setup (COMPLETED)
-- ✅ Created Supabase tables using `supabase db reset`
-- ✅ Applied RLS policies via Docker exec
-- ✅ Seeded data successfully:
-  - 2 standards in `standards` table
-  - 3 questions in `question_bank` table
-  - 2 pacing presets in `pacing_presets` table
-- ✅ Local Supabase running on http://127.0.0.1:54321
+### Phase 1: Subtopic Seed Generation (COMPLETED)
+- ✅ Created `scripts/generate_subtopic_seeds.py` - OpenAI-powered subtopic generator
+- ✅ Generated **1,275 subtopics** across K-12:
+  - 648 math subtopics
+  - 627 reading subtopics
+- ✅ Saved to `studybuddy/backend/db/sql/seed_subtopics.json` (405KB)
+- ✅ Updated database schema with `subtopics` table and indexes
+- ✅ Implemented repository methods:
+  - `insert_subtopics()` - Idempotent inserts
+  - `list_subtopics()` - Query with filters
+  - `get_subtopic()` - Get by ID
+  - `count_subtopics()` - Count with filters
+- ✅ Applied migration to add subtopics table to database
+- ✅ Loaded all 1,275 subtopics into Supabase
 
-### Application Configuration (COMPLETED)
-- ✅ Created `.env` file from `.env.example`
-- ✅ Set `STUDYBUDDY_DATA_MODE=supabase`
-- ✅ Configured local Supabase URL and service role key
-- ✅ Added `/reset-cache` endpoint to clear repository cache
-
-### Investigation Results (COMPLETED)
-- ✅ Identified the root cause: Python dependency compatibility issue
-- ✅ Confirmed API endpoints work (signup returns proper response)
-- ✅ Verified database connection works (can query data directly)
-- ✅ Found that repository cache was using memory mode instead of Supabase
-
-## Root Cause Analysis 🔍
-
-**Issue**: Supabase Python client (v2.4.0) has dependency conflicts with `gotrue` → `httpx` client
-
-**Error**: `TypeError: Client.__init__() got an unexpected keyword argument 'proxy'`
-
-**Impact**:
-- Repository silently falls back to memory mode
-- API responses look successful but data isn't persisted
-- No errors shown in application logs
+### Planning Documents Created
+- ✅ `CLAUDE_PLAN.md` - Full original implementation plan (static seed approach)
+- ✅ `CLAUDE_PLAN2.md` - Concise Phase 2 plan (question selection with subtopics)
 
 ## Current State 📍
 
 ### Environment
-- Local Supabase running and accessible
-- Development server running on port 8000
-- Environment configured for Supabase mode
-- Database tables created and seeded
+- Using hosted Supabase (not local)
+- Direct PostgreSQL connection via `psycopg2`
+- Remote database: `aws-1-us-west-1.pooler.supabase.com`
+- Development server ready on port 8000
 
-### Code Changes Made
-1. Created `.env` file with Supabase configuration
-2. Added `/reset-cache` endpoint in `health.py:14-17`
-3. No other code modifications needed
+### Database State
+- ✅ `subtopics` table exists with 1,275 records
+- ✅ `question_bank` table has `sub_topic` column (already exists)
+- ⚠️ Existing questions in question_bank may have NULL or generic sub_topic values
+- **Decision**: Will TRUNCATE question_bank and start fresh (no backfill needed)
 
-### What's NOT Working
-- Data persistence to Supabase (falls back to memory storage)
-- Supabase Python client initialization fails silently
+### Code State
+**Completed:**
+- `studybuddy/backend/db/sql/schema.sql` - Added subtopics table
+- `studybuddy/backend/db/sql/migration_add_subtopics.sql` - Migration file
+- `studybuddy/backend/db/repository.py` - Added subtopic methods to protocol
+- `studybuddy/backend/db/postgres_repo.py` - Implemented subtopic methods
+- `scripts/` - Multiple helper scripts for generation and seeding
 
-## Next Steps / Solutions 🚀
+**Not Yet Modified (Phase 2 work):**
+- `studybuddy/backend/db/repository.py` - Need to add `subtopic` param to question methods
+- `studybuddy/backend/db/postgres_repo.py` - Need subtopic filtering in list_questions/count_questions
+- `studybuddy/backend/services/question_picker.py` - Need select_next_subtopic() function
+- `studybuddy/backend/services/genai.py` - Need to add subtopic to GenerationContext
+- `studybuddy/backend/routes/questions.py` - Need to handle subtopic selection
+- `studybuddy/backend/models.py` - Need to update QuestionRequest/QuestionResponse
 
-### Option 1: Direct PostgreSQL Connection (Recommended)
-- Install `psycopg2-binary`
-- Create a PostgreSQL-only repository that bypasses Supabase Python client
-- Connect directly to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+## Next Steps / Phase 2 🚀
 
-### Option 2: Use Hosted Supabase
-- Create project at supabase.com
-- Use hosted URL instead of local instance
-- Python client works better with hosted instances
+### 2.0 Clear Question Bank
+```sql
+TRUNCATE TABLE question_bank CASCADE;
+TRUNCATE TABLE attempts CASCADE;
+TRUNCATE TABLE seen_questions CASCADE;
+```
 
-### Option 3: Fix Package Versions
-- Try different combinations of supabase/gotrue/httpx versions
-- This is more complex due to rapidly evolving ecosystem
+### 2.1 Add Subtopic Parameter to Repository Methods
+- Update `list_questions()` signature to accept `subtopic` parameter
+- Update `count_questions()` signature to accept `subtopic` parameter
+- Implement subtopic filtering in queries
 
-## Files Modified
-- `/Users/atyagi/codevault/testAI/.env` (created from example)
-- `/Users/atyagi/codevault/testAI/studybuddy/backend/routes/health.py:14-17` (added reset-cache endpoint)
+### 2.2 Create Subtopic Selection Logic
+- Implement `select_next_subtopic()` function in `question_picker.py`
+- **Only auto-select when user doesn't provide subtopic**
+- Selection based on:
+  1. Unseen question count (prioritize subtopics with more unseen)
+  2. Sequence order (follow curriculum progression for ties)
+
+### 2.3 Update Question Generation
+- Add `subtopic` to `GenerationContext` dataclass
+- Update `_build_prompt()` to include subtopic in OpenAI prompt
+- Ensure generated questions include proper `sub_topic` value
+
+### 2.4 Update Routes and API Models
+- Update `QuestionRequest` to accept optional `subtopic`
+- Update `QuestionResponse` to return `selected_subtopic`
+- Modify `/fetch` endpoint to:
+  - Use user-provided subtopic if given
+  - Auto-select subtopic if not provided
+  - Return which subtopic was used
+
+### 2.5 Update Stock Management
+- Check stock levels per-subtopic (not per-topic)
+- Only generate when subtopic stock < MIN_STOCK_THRESHOLD
+
+## Key Design Decisions 📝
+
+1. **Static Subtopics**: Generated once via script, stored as seed data (not dynamic per user)
+2. **Clean Slate**: TRUNCATE question_bank instead of backfilling (acceptable for dev)
+3. **User Override**: Auto-selection only when user doesn't specify subtopic
+4. **On-Demand Generation**: Questions generated with subtopic context as needed
+5. **Per-Subtopic Inventory**: Stock management at subtopic level for better coverage
+
+## Files Created This Session
+- `/scripts/generate_subtopic_seeds.py`
+- `/scripts/seed_subtopics.py`
+- `/scripts/apply_subtopics_migration.py`
+- `/scripts/run_generate_subtopics.sh`
+- `/scripts/run_seed_subtopics.sh`
+- `/scripts/run_migration.sh`
+- `/studybuddy/backend/db/sql/seed_subtopics.json`
+- `/studybuddy/backend/db/sql/migration_add_subtopics.sql`
+- `/.claude.json` (project-specific config)
+- `/CLAUDE_PLAN.md`
+- `/CLAUDE_PLAN2.md`
+
+## Files Modified This Session
+- `studybuddy/backend/db/sql/schema.sql` - Added subtopics table + indexes
+- `studybuddy/backend/db/repository.py` - Added subtopic methods to protocol
+- `studybuddy/backend/db/postgres_repo.py` - Implemented subtopic repository methods
+- `scripts/generate_subtopic_seeds.py` - User modified to add Eureka Math reference
+
+## Important Notes
+- MCP server `context7` added to `.claude.json` but not actively used
+- OpenAI API key required and configured in `.env`
+- Migration is idempotent (safe to run multiple times)
+- Seed loading is idempotent (checks for existing records)
+- All 130 OpenAI API calls completed successfully during generation
 
 ## Key Commands for Resumption
 ```bash
-# Check Supabase status
-supabase status
+# Check subtopics in database
+python3 -c "from studybuddy.backend.db.repository import build_repository; \
+repo = build_repository(); \
+print(f'Math: {repo.count_subtopics(subject=\"math\")}'); \
+print(f'Reading: {repo.count_subtopics(subject=\"reading\")}')"
 
-# Restart dev server
+# View a few subtopics
+python3 -c "from studybuddy.backend.db.repository import build_repository; \
+repo = build_repository(); \
+topics = repo.list_subtopics('math', 1, 'addition')[:3]; \
+for t in topics: print(f'{t[\"subtopic\"]}: {t[\"description\"]}')"
+
+# Start dev server
 make dev
 
-# Reset repository cache
-curl -X POST http://localhost:8000/reset-cache
-
-# Test signup
-curl -X POST http://localhost:8000/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "password123"}'
-
-# Check if data persisted
-docker exec -i supabase_db_testAI psql -U postgres -d postgres -c "SELECT * FROM parents;"
+# Run Phase 2 when ready
+# Follow CLAUDE_PLAN2.md for step-by-step implementation
 ```
 
-## Important Notes
-- The application architecture is sound
-- Supabase setup is correct
-- This is purely a Python SDK compatibility issue
-- Production deployment with hosted Supabase should work fine
+## Estimated Remaining Time
+- Phase 2 (Question Selection): ~2 days
+- Phase 3 (Question Generation): ~1 day
+- Phase 4 (Stock Management): ~1 day
+- Testing & Polish: ~1 day
+
+**Total remaining: ~5 days for complete subtopic system**

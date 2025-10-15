@@ -1,25 +1,19 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-testAI currently hosts planning docs only (`README.md`, `LICENSE`). As features land, create a `src/` folder for application code; keep domain logic in `src/core/`, interface components in `src/ui/`, and service integrations under `src/services/`. Mirror runtime modules inside `tests/` using matching paths, e.g. `tests/core/quizEngine.spec.ts`. Place static assets (sample question banks, illustrations) inside `assets/`, and shareable scripts under `scripts/`.
+Until application code lands, rely on `README.md` for current flows, dependencies, and roadmap. When shipping features, keep all code in `src/`: core logic in `src/core/`, UI in `src/ui/`, and external adapters in `src/services/`. Mirror that layout in `tests/` (for example, `tests/core/quizEngine.spec.ts`). Reusable fixtures belong in `tests/fixtures/`, static assets in `assets/`, and operational scripts in `scripts/`. Resist new top-level folders so future agents can locate work quickly.
 
 ## Build, Test, and Development Commands
-The project targets a Node/TypeScript toolchain. Ensure the following npm scripts exist and stay green:
-- `npm install` installs workspace dependencies.
-- `npm run dev` launches the local playground (Vite or Next.js) at `http://localhost:5173`.
-- `npm run build` compiles a production bundle to `dist/`.
-- `npm run lint` runs ESLint with the repository config.
-- `npm run test` executes the automated suite.
-Document any additional commands you introduce inside `README.md` and reference them in PRs.
+Run `npm install` whenever the lockfile changes. Use `npm run dev` to serve the playground at http://localhost:5173 and verify interactive flows. Production bundles come from `npm run build`, which emits to `dist/`. Guard quality with `npm run lint`; append `-- --fix` for safe auto-formatting. Execute `npm run test` for regression coverage and add `-- --coverage` before requesting review. Document any extra Makefile or npm scripts in `README.md`.
 
 ## Coding Style & Naming Conventions
-Use TypeScript, ES2020 modules, and 2-space indentation. Prefer descriptive PascalCase for React components, camelCase for variables/functions, and SCREAMING_SNAKE_CASE for constants. Run Prettier (`npm run lint -- --fix`) before opening PRs. Keep modules cohesive: export a single default or a focused set of named exports.
+Author production code in TypeScript with ES2020 modules and 2-space indentation. Prefer PascalCase for React components, camelCase for helpers and hooks, and SCREAMING_SNAKE_CASE for shared constants. Keep modules narrowly scoped and export either a single default or a small, intentional set of named utilities. Always finish a branch with `npm run lint -- --fix` to avoid review churn.
 
 ## Testing Guidelines
-Rely on Vitest for unit tests and Playwright for end-to-end checks. Name unit test files `*.spec.ts` and integration tests `*.test.ts`. Target 80% line coverage minimum; add coverage reports with `npm run test -- --coverage`. When adding new quiz flows, include fixtures under `tests/fixtures/` to model grade-level standards.
+Vitest covers unit suites; Playwright handles end-to-end scenarios once UI scaffolding arrives. Name unit specs `*.spec.ts` and integration suites `*.test.ts`. Store grade-level fixtures under `tests/fixtures/` and expand them as requirements grow. Target 80% coverage using `npm run test -- --coverage`, then highlight any intentional gaps in your PR notes.
 
 ## Commit & Pull Request Guidelines
-Follow Conventional Commits (e.g., `feat: add adaptive scoring`) with <=72 character subjects and optional bodies. Group related changes per commit and update docs alongside code. Pull requests must include: objective summary, testing evidence (`npm run test` output), screenshots for UI changes, and linked issue numbers. Request review from at least one maintainer and wait for CI success before merging.
+Follow Conventional Commits (e.g., `feat: add adaptive scoring`) with ≤72-character subjects. Pair code and documentation changes in the same commit. Pull requests should state the objective, include `npm run test` output, attach UI screenshots when applicable, link related issues, and note configuration updates. Request at least one maintainer review and wait for green CI before merging.
 
 ## Security & Configuration Tips
-Store secrets (API keys, dataset URLs) in `.env.local`; never commit them. Provide `.env.example` updates when configuration changes. Sanitize sample datasets before uploading and confirm new third-party dependencies have permissive licenses.
+Store secrets in `.env.local` and keep them out of git. Update `.env.example` whenever configuration inputs change so the next agent can bootstrap quickly. Sanitize datasets, check third-party licenses, and flag any new dependencies during review.
