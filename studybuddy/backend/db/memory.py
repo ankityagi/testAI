@@ -191,6 +191,7 @@ class MemoryRepository:
         subject: str,
         topic: Optional[str] = None,
         grade: Optional[int] = None,
+        subtopic: Optional[str] = None,
         difficulties: Iterable[str] | None = None,
         exclude_hashes: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
@@ -203,6 +204,8 @@ class MemoryRepository:
             if topic and record.topic != topic:
                 continue
             if grade is not None and record.grade not in (None, grade):
+                continue
+            if subtopic is not None and record.sub_topic != subtopic:
                 continue
             if difficulties_set and (record.difficulty or "easy") not in difficulties_set:
                 continue
@@ -218,9 +221,10 @@ class MemoryRepository:
         subject: str,
         topic: Optional[str] = None,
         grade: Optional[int] = None,
+        subtopic: Optional[str] = None,
     ) -> int:
         return len(
-            self.list_questions(subject=subject, topic=topic, grade=grade)
+            self.list_questions(subject=subject, topic=topic, grade=grade, subtopic=subtopic)
         )
 
     def insert_questions(self, questions: list[dict[str, Any]]) -> None:
@@ -334,6 +338,29 @@ class MemoryRepository:
             "current_streak": streak,
             "by_subject": normalized_subjects,
         }
+
+    # ------------------------------------------------------------------
+    # Subtopics
+    def insert_subtopics(self, subtopics: list[dict]) -> None:
+        """Stub implementation - subtopics not supported in memory mode."""
+        pass
+
+    def list_subtopics(
+        self,
+        subject: str,
+        grade: int | None = None,
+        topic: str | None = None,
+    ) -> list[dict]:
+        """Stub implementation - returns empty list in memory mode."""
+        return []
+
+    def get_subtopic(self, subtopic_id: str) -> dict | None:
+        """Stub implementation - subtopics not supported in memory mode."""
+        return None
+
+    def count_subtopics(self, *, subject: str, grade: int | None = None, topic: str | None = None) -> int:
+        """Stub implementation - returns 0 in memory mode."""
+        return 0
 
     # ------------------------------------------------------------------
     # Helpers

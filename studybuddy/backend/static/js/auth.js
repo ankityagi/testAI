@@ -85,14 +85,15 @@ const handleChildrenUpdated = (children) => {
   updateChildCount();
   if (!children.length) {
     state.selectedChildId = null;
-    practiceUI.onChildSelected(null);
+    practiceUI.onChildSelected(null, null);
     historyUI.onChildSelected(null);
     return;
   }
   const exists = children.some((child) => child.id === state.selectedChildId);
   if (!exists) {
     state.selectedChildId = children[0].id;
-    practiceUI.onChildSelected(state.selectedChildId);
+    const selectedChild = children[0];
+    practiceUI.onChildSelected(state.selectedChildId, selectedChild);
     historyUI.onChildSelected(state.selectedChildId);
     childrenUI.highlight(state.selectedChildId);
   }
@@ -100,7 +101,8 @@ const handleChildrenUpdated = (children) => {
 
 const handleChildSelected = (childId) => {
   state.selectedChildId = childId;
-  practiceUI.onChildSelected(childId);
+  const selectedChild = state.children.find(child => child.id === childId);
+  practiceUI.onChildSelected(childId, selectedChild);
   historyUI.onChildSelected(childId);
 };
 
@@ -130,10 +132,11 @@ const handleAuthSuccess = async (payload) => {
   await historyUI.loadStandards();
   showDashboard();
   if (state.children.length) {
-    const childId = state.children[0].id;
+    const child = state.children[0];
+    const childId = child.id;
     state.selectedChildId = childId;
     childrenUI.highlight(childId);
-    practiceUI.onChildSelected(childId);
+    practiceUI.onChildSelected(childId, child);
     historyUI.onChildSelected(childId);
   }
 };
@@ -195,8 +198,9 @@ const boot = async () => {
     if (state.children.length) {
       const childId = state.selectedChildId || state.children[0].id;
       state.selectedChildId = childId;
+      const selectedChild = state.children.find(child => child.id === childId);
       childrenUI.highlight(childId);
-      practiceUI.onChildSelected(childId);
+      practiceUI.onChildSelected(childId, selectedChild);
       historyUI.onChildSelected(childId);
     }
   } catch (error) {

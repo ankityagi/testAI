@@ -32,7 +32,8 @@ export const setupChildrenUI = ({ apiClient, onChildrenUpdated, onChildSelected 
 
   const handleSelect = (childId) => {
     highlight(childId);
-    onChildSelected(childId);
+    const selectedChild = currentChildren.find(c => c.id === childId);
+    onChildSelected(childId, selectedChild);
   };
 
   const createActionButton = (label, handler) => {

@@ -1,4 +1,5 @@
 """FastAPI entrypoint for studybuddy backend."""
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -10,6 +11,8 @@ from .routes import admin, attempts, children, health, progress, questions, stan
 
 # Load environment variables from .env file
 load_dotenv()
+print(f"[APP INIT] STUDYBUDDY_MOCK_AI after load_dotenv: '{os.getenv('STUDYBUDDY_MOCK_AI')}'", flush=True)
+print(f"[APP INIT] STUDYBUDDY_DATA_MODE after load_dotenv: '{os.getenv('STUDYBUDDY_DATA_MODE')}'", flush=True)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 

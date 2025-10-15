@@ -72,6 +72,7 @@ class QuestionRequest(BaseModel):
     child_id: str
     subject: str
     topic: Optional[str] = None
+    subtopic: Optional[str] = None
     limit: int = Field(default=5, ge=1, le=20)
 
 
@@ -93,6 +94,7 @@ class Question(BaseModel):
 
 class QuestionResponse(BaseModel):
     questions: list[Question]
+    selected_subtopic: Optional[str] = None
 
 
 class AttemptSubmission(BaseModel):

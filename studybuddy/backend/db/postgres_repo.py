@@ -242,6 +242,7 @@ class PostgresRepository:
         subject: str,
         topic: str | None = None,
         grade: int | None = None,
+        subtopic: str | None = None,
         difficulties: Iterable[str] | None = None,
         exclude_hashes: Iterable[str] | None = None,
     ) -> list[dict]:
@@ -251,6 +252,11 @@ class PostgresRepository:
                 query = "SELECT * FROM question_bank WHERE subject = %s"
                 params = [subject]
 
+                # Exclude mock questions unless STUDYBUDDY_MOCK_AI is enabled
+                mock_mode = os.getenv("STUDYBUDDY_MOCK_AI", "0") == "1"
+                if not mock_mode:
+                    query += " AND (source IS NULL OR source != 'mock')"
+
                 if topic:
                     query += " AND topic = %s"
                     params.append(topic)
@@ -258,6 +264,10 @@ class PostgresRepository:
                 if grade is not None:
                     query += " AND (grade = %s OR grade IS NULL)"
                     params.append(grade)
+
+                if subtopic is not None:
+                    query += " AND sub_topic = %s"
+                    params.append(subtopic)
 
                 if difficulties:
                     collection = [d for d in difficulties if d]
@@ -273,9 +283,14 @@ class PostgresRepository:
                         query += f" AND hash NOT IN ({placeholders})"
                         params.extend(hashes)
 
-                query += " ORDER BY created_at"
+                query += " ORDER BY RANDOM()"  # Randomize question order
                 cur.execute(query, params)
-                return [dict(row) for row in cur.fetchall()]
+                results = []
+                for row in cur.fetchall():
+                    question = dict(row)
+                    # JSONB columns are automatically deserialized by psycopg2
+                    results.append(question)
+                return results
         finally:
             conn.close()
 
@@ -285,6 +300,7 @@ class PostgresRepository:
         subject: str,
         topic: str | None = None,
         grade: int | None = None,
+        subtopic: str | None = None,
     ) -> int:
         conn = self.get_connection()
         try:
@@ -292,13 +308,22 @@ class PostgresRepository:
                 query = "SELECT COUNT(*) as count FROM question_bank WHERE subject = %s"
                 params = [subject]
 
+                # Exclude mock questions unless STUDYBUDDY_MOCK_AI is enabled
+                mock_mode = os.getenv("STUDYBUDDY_MOCK_AI", "0") == "1"
+                if not mock_mode:
+                    query += " AND (source IS NULL OR source != 'mock')"
+
                 if topic:
                     query += " AND topic = %s"
                     params.append(topic)
 
                 if grade is not None:
-                    query += " AND grade = %s"
+                    query += " AND (grade = %s OR grade IS NULL)"
                     params.append(grade)
+
+                if subtopic is not None:
+                    query += " AND sub_topic = %s"
+                    params.append(subtopic)
 
                 cur.execute(query, params)
                 return cur.fetchone()["count"]
@@ -306,6 +331,7 @@ class PostgresRepository:
             conn.close()
 
     def insert_questions(self, questions: list[dict]) -> None:
+        import json
         conn = self.get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -319,11 +345,19 @@ class PostgresRepository:
                         "SELECT id FROM question_bank WHERE hash = %s",
                         (question_hash,)
                     )
-                    if cur.fetchone():
+                    existing = cur.fetchone()
+                    if existing:
+                        # Update the question object with the existing database ID
+                        question["id"] = existing["id"]
+                        print(f"[INSERT_Q] Question already exists with id={existing['id']}, updating question object", flush=True)
                         continue
 
                     payload = {**question, "hash": question_hash}
                     payload.setdefault("id", os.urandom(16).hex())
+
+                    # Convert options to JSON string for JSONB column
+                    if "options" in payload and isinstance(payload["options"], list):
+                        payload["options"] = json.dumps(payload["options"])
 
                     columns = ", ".join(payload.keys())
                     placeholders = ", ".join(["%s"] * len(payload))
@@ -331,6 +365,7 @@ class PostgresRepository:
                         f"INSERT INTO question_bank ({columns}) VALUES ({placeholders})",
                         tuple(payload.values())
                     )
+                    print(f"[INSERT_Q] Inserted new question with id={payload['id']} topic={payload['topic']} sub_topic={payload['sub_topic']} grade={payload['grade']} difficulty={payload['difficulty']}", flush=True)
                 conn.commit()
         finally:
             conn.close()
@@ -364,13 +399,15 @@ class PostgresRepository:
         conn = self.get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                print(f"[LOG_ATTEMPT] Looking for question_id: {question_id}", flush=True)
                 cur.execute(
                     "SELECT correct_answer, hash FROM question_bank WHERE id = %s",
                     (question_id,)
                 )
                 question = cur.fetchone()
                 if not question:
-                    raise ValueError("Unknown question")
+                    print(f"[LOG_ATTEMPT] Question not found in database: {question_id}", flush=True)
+                    raise ValueError(f"Unknown question: {question_id}")
 
                 correct_answer = question["correct_answer"]
                 correct = selected == correct_answer
@@ -448,6 +485,99 @@ class PostgresRepository:
                     "current_streak": streak,
                     "by_subject": by_subject,
                 }
+        finally:
+            conn.close()
+
+
+    def insert_subtopics(self, subtopics: list[dict]) -> None:
+        """Insert subtopics into the database."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                for subtopic in subtopics:
+                    # Check if subtopic already exists
+                    cur.execute(
+                        "SELECT id FROM subtopics WHERE subject = %s AND grade = %s AND topic = %s AND subtopic = %s",
+                        (subtopic["subject"], subtopic["grade"], subtopic["topic"], subtopic["subtopic"])
+                    )
+                    if cur.fetchone():
+                        print(f"[INSERT_SUBTOPIC] Subtopic already exists: {subtopic['subject']}/{subtopic['grade']}/{subtopic['topic']}/{subtopic['subtopic']}", flush=True)
+                        continue
+
+                    # Insert new subtopic
+                    cur.execute(
+                        """INSERT INTO subtopics (subject, grade, topic, subtopic, description, sequence_order)
+                           VALUES (%s, %s, %s, %s, %s, %s)""",
+                        (
+                            subtopic["subject"],
+                            subtopic["grade"],
+                            subtopic["topic"],
+                            subtopic["subtopic"],
+                            subtopic.get("description"),
+                            subtopic.get("sequence_order", 0)
+                        )
+                    )
+                    print(f"[INSERT_SUBTOPIC] Inserted: {subtopic['subject']}/{subtopic['grade']}/{subtopic['topic']}/{subtopic['subtopic']}", flush=True)
+                conn.commit()
+        finally:
+            conn.close()
+
+    def list_subtopics(
+        self,
+        subject: str,
+        grade: int | None = None,
+        topic: str | None = None,
+    ) -> list[dict]:
+        """List subtopics filtered by subject, grade, and/or topic."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = "SELECT * FROM subtopics WHERE subject = %s"
+                params = [subject]
+
+                if grade is not None:
+                    query += " AND grade = %s"
+                    params.append(grade)
+
+                if topic:
+                    query += " AND topic = %s"
+                    params.append(topic)
+
+                query += " ORDER BY sequence_order, subtopic"
+                cur.execute(query, params)
+                return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_subtopic(self, subtopic_id: str) -> dict | None:
+        """Get a single subtopic by ID."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM subtopics WHERE id = %s", (subtopic_id,))
+                result = cur.fetchone()
+                return dict(result) if result else None
+        finally:
+            conn.close()
+
+    def count_subtopics(self, *, subject: str, grade: int | None = None, topic: str | None = None) -> int:
+        """Count subtopics filtered by subject, grade, and/or topic."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = "SELECT COUNT(*) as count FROM subtopics WHERE subject = %s"
+                params = [subject]
+
+                if grade is not None:
+                    query += " AND grade = %s"
+                    params.append(grade)
+
+                if topic:
+                    query += " AND topic = %s"
+                    params.append(topic)
+
+                cur.execute(query, params)
+                return cur.fetchone()["count"]
         finally:
             conn.close()
 

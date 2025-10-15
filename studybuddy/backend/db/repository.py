@@ -52,6 +52,7 @@ class Repository(Protocol):
         subject: str,
         topic: str | None = None,
         grade: int | None = None,
+        subtopic: str | None = None,
         difficulties: Iterable[str] | None = None,
         exclude_hashes: Iterable[str] | None = None,
     ) -> list[dict]: ...
@@ -62,6 +63,7 @@ class Repository(Protocol):
         subject: str,
         topic: str | None = None,
         grade: int | None = None,
+        subtopic: str | None = None,
     ) -> int: ...
 
     def insert_questions(self, questions: list[dict]) -> None: ...
@@ -80,6 +82,19 @@ class Repository(Protocol):
     ) -> dict: ...
 
     def child_progress(self, child_id: str) -> dict: ...
+
+    def insert_subtopics(self, subtopics: list[dict]) -> None: ...
+
+    def list_subtopics(
+        self,
+        subject: str,
+        grade: int | None = None,
+        topic: str | None = None,
+    ) -> list[dict]: ...
+
+    def get_subtopic(self, subtopic_id: str) -> dict | None: ...
+
+    def count_subtopics(self, *, subject: str, grade: int | None = None, topic: str | None = None) -> int: ...
 
 
 def build_repository() -> Repository:

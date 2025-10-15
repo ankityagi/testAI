@@ -1,5 +1,5 @@
 """Question retrieval routes."""
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 
 from .. import deps
 from ..db.repository import Repository
@@ -8,6 +8,42 @@ from ..services import pacing
 from ..services import question_picker as picker
 
 router = APIRouter()
+
+
+@router.get("/topics")
+def list_topics(
+    subject: str = Query(...),
+    grade: int = Query(...),
+    parent: Parent = Depends(deps.get_current_parent),
+    repo: Repository = Depends(deps.get_repository),
+):
+    """List available topics for a given subject/grade combination."""
+    # Get all subtopics and extract unique topics
+    subtopics = repo.list_subtopics(subject=subject, grade=grade, topic=None)
+
+    # Extract unique topics while preserving order
+    seen = set()
+    topics = []
+    for st in subtopics:
+        topic = st.get("topic")
+        if topic and topic not in seen:
+            seen.add(topic)
+            topics.append({"topic": topic})
+
+    return {"topics": topics}
+
+
+@router.get("/subtopics")
+def list_subtopics(
+    subject: str = Query(...),
+    grade: int = Query(...),
+    topic: str = Query(None),
+    parent: Parent = Depends(deps.get_current_parent),
+    repo: Repository = Depends(deps.get_repository),
+):
+    """List available subtopics for a given subject/grade/topic combination."""
+    subtopics = repo.list_subtopics(subject=subject, grade=grade, topic=topic)
+    return {"subtopics": subtopics}
 
 
 @router.post("/fetch", response_model=QuestionResponse)
@@ -32,13 +68,23 @@ def fetch_questions(
             default=None,
         )
 
+    # CONDITIONAL subtopic selection
+    subtopic = payload.subtopic
+    if subtopic:
+        print(f"[ROUTE] Using user-specified subtopic: {subtopic}", flush=True)
+    else:
+        print(f"[ROUTE] No subtopic specified, will auto-select", flush=True)
+
     batch = picker.fetch_batch(
         repo=repo,
         child=child,
         subject=payload.subject,
         topic=topic,
+        subtopic=subtopic,  # Can be None or user-specified
         limit=payload.limit,
     )
+
+    # CRITICAL: Restock the SPECIFIC subtopic that was used
     if batch.stock_deficit > 0:
         background_tasks.add_task(
             picker.top_up_stock,
@@ -46,6 +92,11 @@ def fetch_questions(
             child=child,
             subject=payload.subject,
             topic=topic,
+            subtopic=batch.selected_subtopic,  # Use the DEPLETED subtopic
             count=batch.stock_deficit,
         )
-    return QuestionResponse(questions=batch.questions)
+
+    return QuestionResponse(
+        questions=batch.questions,
+        selected_subtopic=batch.selected_subtopic  # Always return what was used
+    )
