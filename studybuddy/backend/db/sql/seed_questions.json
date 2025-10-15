@@ -4,10 +4,15 @@
     "subject": "math",
     "grade": 1,
     "topic": "addition",
-    "sub_topic": "within 20",
+    "sub_topic": "Understanding Addition",
     "difficulty": "easy",
     "stem": "What is 8 + 7?",
-    "options": ["13", "14", "15", "16"],
+    "options": [
+      "13",
+      "14",
+      "15",
+      "16"
+    ],
     "correct_answer": "15",
     "rationale": "Add 8 and 7 to get 15.",
     "source": "seed"
@@ -17,10 +22,15 @@
     "subject": "math",
     "grade": 1,
     "topic": "addition",
-    "sub_topic": "within 20",
+    "sub_topic": "Understanding Addition",
     "difficulty": "medium",
     "stem": "Liam has 9 marbles and finds 7 more. How many marbles does he have now?",
-    "options": ["15", "16", "17", "18"],
+    "options": [
+      "15",
+      "16",
+      "17",
+      "18"
+    ],
     "correct_answer": "16",
     "rationale": "9 + 7 = 16.",
     "source": "seed"
@@ -30,10 +40,15 @@
     "subject": "reading",
     "grade": 1,
     "topic": "comprehension",
-    "sub_topic": "retell",
+    "sub_topic": "Retelling Stories",
     "difficulty": "easy",
     "stem": "What do you call the main idea of a story?",
-    "options": ["The chapter", "The title", "The setting", "The message"],
+    "options": [
+      "The chapter",
+      "The title",
+      "The setting",
+      "The message"
+    ],
     "correct_answer": "The message",
     "rationale": "The main idea tells the message of the story.",
     "source": "seed"

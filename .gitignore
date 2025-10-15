@@ -9,3 +9,6 @@ __pycache__/
 ## Supabase
 supabase/.temp/
 supabase/.config/
+
+## Claude
+.claude.json

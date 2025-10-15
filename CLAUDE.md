@@ -66,3 +66,10 @@ The codebase follows a 4-phase development plan (see PLAN_FILE.md):
 
 ### API Structure
 Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery), `/attempts` (logging), `/progress/{child_id}` (analytics), and `/admin/generate` (batch creation).
+
+# Workflow
+- Be sure to typecheck when you’re done making a series of code changes
+- Prefer running single tests, and not the whole test suite, for performance
+- Use claude_changelog file to document all changes added to the code
+- along with each PR update the README file, and USAGE_FILE
+- Always use gh cli when working with github and make sure to track all new files

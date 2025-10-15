@@ -1,0 +1,33 @@
+# React Frontend and Cross-Platform Expansion Plan
+
+## P0 – Local React Drop-In
+- Audit current UI flows described in `README.md` and map them to FastAPI endpoints.
+- Scaffold a Vite + React + TypeScript app in `src/ui/web/` with ESLint/Prettier configured for ES2020 and 2-space indentation.
+- Stand up a minimal design system: shared tokens in `src/core/theme/` and base components in `src/ui/web/components/`.
+- Recreate the existing flows feature-by-feature in React, centralizing HTTP calls inside `src/services/apiClient.ts`.
+- Verify locally with `npm run dev`, `npm run lint`, and `npm run test`, documenting known gaps in `README.md`.
+
+## P1 – Shared Core for Web and Mobile
+- Restructure into a monorepo (`apps/web`, `apps/mobile`, `packages/core`, `packages/ui`) using Turborepo or Nx to share configs and tooling.
+- Bootstrap an Expo-managed React Native app in `apps/mobile` that mirrors the web routing model (Expo Router ↔ React Router).
+- Build `packages/ui` on React Native primitives with `react-native-web`, enabling both apps to consume the same components.
+- Add Storybook (or Ladle) to exercise shared UI primitives across platforms and enforce accessibility checks.
+- Introduce state management (React Query + Zustand or equivalent) and abstract platform-specific services in `packages/core/platform/`.
+
+## P2 – Backend Alignment and Contract Hardening
+- Upgrade FastAPI schemas to Pydantic v2, generate OpenAPI docs, and create a TypeScript client in `packages/core/api` via `openapi-typescript`.
+- Implement CORS, authentication guards, and rate limiting suitable for public clients.
+- Expand unit and contract tests in `studybuddy/backend/tests/` (or new `tests/services/`) to lock down behaviors before shared deployment.
+- Define CI gates for linting, testing, and coverage to protect the new monorepo structure.
+
+## P3 – Unified Render Deployment (Single Docker Image)
+- Extend the existing backend `Dockerfile` to build the React app during the image build step (e.g., `npm install && npm run build` in a web stage, copy assets into FastAPI static directory).
+- Serve the compiled React bundle via FastAPI (e.g., `studybuddy/backend/app.py` static mount) so one container hosts both UI and API.
+- Configure the Render Web Service to use the new Docker image, supplying required environment variables and health check (`/healthz`).
+- Add GitHub Actions workflows to lint/test, build the unified image, push to Render’s registry, and trigger deploy hooks.
+- Establish Render monitoring, autoscaling, and alerting; document manual rollback steps in `README.md`.
+
+## Immediate Next Actions
+1. Choose Turborepo vs. Nx and confirm Expo as the mobile runtime.
+2. Draft component architecture and API contract docs for shared packages.
+3. Prototype the P0 React app skeleton to validate the drop-in approach before reorganizing the repo.
