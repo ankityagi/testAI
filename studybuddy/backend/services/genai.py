@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 from dataclasses import dataclass
 from typing import Any, Iterable
 from uuid import uuid4
@@ -15,7 +16,14 @@ from .validators import QuestionValidationError, validate_mcq
 
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-MOCK_MODE = os.getenv("STUDYBUDDY_MOCK_AI", "0") == "1"
+_mock_env_value = os.getenv("STUDYBUDDY_MOCK_AI", "0")
+MOCK_MODE = _mock_env_value == "1"
+
+
+print(f"[GENAI INIT] STUDYBUDDY_MOCK_AI env value: '{_mock_env_value}'", flush=True)
+print(f"[GENAI INIT] MOCK_MODE evaluated to: {MOCK_MODE}", flush=True)
+logging.info(f"Using MOCK_MODE {MOCK_MODE} to generate MCQs")
+
 
 
 @dataclass
@@ -25,14 +33,21 @@ class GenerationContext:
     grade: int | None
     difficulty: str
     count: int
+    subtopic: str | None = None
 
 
 def _build_prompt(ctx: GenerationContext) -> str:
     topic_text = ctx.topic or "grade-level concept"
     grade_text = f"Grade {ctx.grade}" if ctx.grade is not None else "Elementary"
+
+    # Include subtopic in prompt if provided
+    focus_text = topic_text
+    if ctx.subtopic:
+        focus_text = f"{topic_text}, specifically: {ctx.subtopic}"
+
     return (
         f"Generate {ctx.count} multiple-choice questions for {grade_text} students "
-        f"learning {ctx.subject}. Focus on {topic_text}. Each question must include exactly four answer options, "
+        f"learning {ctx.subject}. Focus on {focus_text}. Each question must include exactly four answer options, "
         f"one marked correct, a short rationale, a Common Core style topic tag, and a difficulty of {ctx.difficulty}. "
         "Respond with JSON array where each item has keys: stem, options (array of four strings), correct_answer, "
         "rationale, subject, grade, topic, sub_topic, difficulty."
@@ -80,9 +95,9 @@ def _client() -> OpenAI:
 @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
 def _invoke_openai(prompt: str, *, model: str) -> str:
     client = _client()
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {
                 "role": "system",
                 "content": "You create Common Core-aligned multiple-choice questions in strict JSON."
@@ -91,7 +106,7 @@ def _invoke_openai(prompt: str, *, model: str) -> str:
         ],
         response_format={"type": "json_object"},
     )
-    content = response.output[0].content[0].text  # type: ignore[attr-defined]
+    content = response.choices[0].message.content
     return content
 
 
@@ -107,14 +122,21 @@ def _parse_questions(raw: str) -> Iterable[dict[str, Any]]:
 def generate_mcqs(*, context: GenerationContext) -> list[dict[str, Any]]:
     """Generate or mock MCQs for the given context."""
     if MOCK_MODE:
+        print(f"[GENAI] Attempting to use mock MCQs", flush=True)
         return _mock_questions(context)
 
+    print(f"[GENAI] Attempting to use real OpenAI API to generate MCQs", flush=True)
+    logging.info("Using real OpenAI API to generate MCQs")
     prompt = _build_prompt(context)
     try:
         raw = _invoke_openai(prompt, model=DEFAULT_MODEL)
         candidates = list(_parse_questions(raw))
+        print(f"[GENAI] Successfully generated {len(candidates)} questions from OpenAI", flush=True)
     except Exception as exc:  # noqa: BLE001 - surface fallback gracefully
+        print(f"[GENAI] OpenAI API call FAILED: {exc}", flush=True)
+        print(f"[GENAI] STUDYBUDDY_ALLOW_FALLBACK={os.getenv('STUDYBUDDY_ALLOW_FALLBACK', '1')}", flush=True)
         if os.getenv("STUDYBUDDY_ALLOW_FALLBACK", "1") == "1":
+            print(f"[GENAI] Falling back to mock questions", flush=True)
             return _mock_questions(context)
         raise RuntimeError(f"Failed to generate MCQs: {exc}") from exc
 
@@ -130,6 +152,7 @@ def generate_mcqs(*, context: GenerationContext) -> list[dict[str, Any]]:
         candidate.setdefault("subject", context.subject)
         candidate.setdefault("grade", context.grade)
         candidate.setdefault("topic", context.topic or context.subject)
+        candidate.setdefault("sub_topic", context.subtopic or candidate.get("sub_topic"))
         candidate.setdefault("difficulty", context.difficulty)
         candidate.setdefault("source", "openai")
         candidate["hash"] = hash_question(stem, options, answer)

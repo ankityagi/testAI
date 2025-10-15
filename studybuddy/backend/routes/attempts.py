@@ -24,5 +24,6 @@ def submit_attempt(
             time_spent_ms=payload.time_spent_ms,
         )
     except ValueError as exc:
+        print(f"[ATTEMPTS] ValueError: {exc}", flush=True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return AttemptResult(**result)

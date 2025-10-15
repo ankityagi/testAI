@@ -128,6 +128,19 @@ export const apiClient = {
     await request(`/children/${childId}`, {method: 'DELETE'});
   },
 
+  async getTopics(subject, grade) {
+    const params = new URLSearchParams({ subject, grade: grade.toString() });
+    return request(`/questions/topics?${params.toString()}`);
+  },
+
+  async getSubtopics(subject, grade, topic = null) {
+    const params = new URLSearchParams({ subject, grade: grade.toString() });
+    if (topic) {
+      params.append('topic', topic);
+    }
+    return request(`/questions/subtopics?${params.toString()}`);
+  },
+
   async fetchQuestions(payload) {
     return request('/questions/fetch', {method: 'POST', body: payload});
   },
