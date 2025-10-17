@@ -45,10 +45,16 @@ def _build_prompt(ctx: GenerationContext) -> str:
     if ctx.subtopic:
         focus_text = f"{topic_text}, specifically: {ctx.subtopic}"
 
+    # Use Eureka Math for math questions
+    standards_text = "Common Core"
+    if ctx.subject.lower() in ["math", "mathematics"]:
+        standards_text = "Eureka Math (EngageNY)"
+
     return (
         f"Generate {ctx.count} multiple-choice questions for {grade_text} students "
         f"learning {ctx.subject}. Focus on {focus_text}. Each question must include exactly four answer options, "
-        f"one marked correct, a short rationale, a Common Core style topic tag, and a difficulty of {ctx.difficulty}. "
+        f"one marked correct, a short rationale, a topic tag aligned with {standards_text} standards, and a difficulty of {ctx.difficulty}. "
+        f"For Math subjects, align questions with Eureka Math curriculum and progression. "
         "Respond with JSON array where each item has keys: stem, options (array of four strings), correct_answer, "
         "rationale, subject, grade, topic, sub_topic, difficulty."
     )
@@ -100,7 +106,12 @@ def _invoke_openai(prompt: str, *, model: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "You create Common Core-aligned multiple-choice questions in strict JSON."
+                "content": (
+                    "You create educational multiple-choice questions in strict JSON. "
+                    "For Math subjects, use Eureka Math (EngageNY) standards and curriculum progression. "
+                    "For other subjects, use Common Core standards. "
+                    "Ensure questions are grade-appropriate and pedagogically sound."
+                )
             },
             {"role": "user", "content": prompt},
         ],
