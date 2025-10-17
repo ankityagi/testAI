@@ -19,14 +19,29 @@ class QuestionBatch:
 
 
 def _difficulty_sequence(attempts: Sequence[dict]) -> list[str]:
+    """
+    Adaptive difficulty selection based on child's performance history.
+    Returns ordered list of difficulty levels to try, from most preferred to fallback.
+    """
     if not attempts:
+        print("[ADAPTIVE] No previous attempts found → Starting with: ['easy', 'medium']", flush=True)
         return ["easy", "medium"]
+
     correct = sum(1 for attempt in attempts if attempt.get("correct"))
     accuracy = correct / len(attempts)
-    if accuracy >= 0.95 and len(attempts) >= 10:
+    total_attempts = len(attempts)
+
+    print(f"[ADAPTIVE] Performance analysis: {correct}/{total_attempts} correct = {accuracy:.1%} accuracy", flush=True)
+
+    if accuracy >= 0.95 and total_attempts >= 10:
+        print("[ADAPTIVE] 🌟 High mastery detected (≥95% over ≥10 attempts) → Prioritizing: ['medium', 'hard', 'easy']", flush=True)
         return ["medium", "hard", "easy"]
+
     if accuracy >= 0.8:
+        print("[ADAPTIVE] ✅ Strong performance (≥80%) → Standard progression: ['easy', 'medium', 'hard']", flush=True)
         return ["easy", "medium", "hard"]
+
+    print("[ADAPTIVE] 📚 Building foundations (<80%) → Staying with: ['easy']", flush=True)
     return ["easy"]
 
 
@@ -141,8 +156,25 @@ def fetch_batch(
     difficulty_preferences = _difficulty_sequence(attempts)
     seen_hashes = set(repo.list_seen_question_hashes(child_id))
 
+    print(f"[PICKER] Query params - subject={subject}, topic={topic}, subtopic={subtopic}, grade={grade}", flush=True)
+    print(f"[PICKER] Child has seen {len(seen_hashes)} questions previously", flush=True)
+    print(f"[PICKER] Difficulty sequence: {difficulty_preferences}", flush=True)
+
     available_questions: list[dict] = []
+    total_in_db = 0
     for difficulty in difficulty_preferences:
+        # First get ALL questions without exclusions to see inventory
+        all_questions = repo.list_questions(
+            subject=subject,
+            topic=topic,
+            grade=grade,
+            subtopic=subtopic,
+            difficulties=[difficulty],
+            exclude_hashes=set(),  # Don't exclude anything for counting
+        )
+        total_in_db += len(all_questions)
+
+        # Now get unseen questions
         fetched = repo.list_questions(
             subject=subject,
             topic=topic,
@@ -151,11 +183,19 @@ def fetch_batch(
             difficulties=[difficulty],
             exclude_hashes=seen_hashes,
         )
-        print(f"[PICKER] Fetched {len(fetched)} questions from DB for subject={subject}, topic={topic}, subtopic={subtopic}, grade={grade}, difficulty={difficulty}", flush=True)
+        unseen_count = len(fetched)
+        seen_for_criteria = len(all_questions) - unseen_count
+
+        print(f"[PICKER] Difficulty={difficulty}: {len(all_questions)} total in DB, {unseen_count} unseen, {seen_for_criteria} already seen by child", flush=True)
+
         for question in fetched:
             question.setdefault("difficulty", difficulty)
-            print(f"[PICKER] Question source: {question.get('source', 'unknown')}, stem: {question.get('stem', '')[:80]}", flush=True)
         available_questions.extend(fetched)
+
+    if total_in_db == 0:
+        print(f"[PICKER] ⚠️  NO questions found in database matching criteria", flush=True)
+    elif len(available_questions) == 0:
+        print(f"[PICKER] ⚠️  {total_in_db} questions exist but child has seen them all", flush=True)
 
     picked: list[dict] = []
     seen_for_session = set(seen_hashes)

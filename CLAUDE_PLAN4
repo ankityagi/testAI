@@ -1,0 +1,134 @@
+# Adaptive Difficulty Logic (History + Session + Streak)
+
+Goal: Dynamically select question difficulty per child/subject using past history, current session performance, and streaks. Simplified 3-level scale: EASY, MEDIUM, HARD (no floats).
+
+Inputs (per attempt)
+- lifetime_accuracy (0–1), recent_accuracy_30 (0–1)
+- session_accuracy (0–1), attempts_in_session (int)
+- correct_streak (int), incorrect_streak (int)
+- difficulty_level cur (enum: EASY | MEDIUM | HARD)
+
+Computation (discrete)
+1) Base from history → nominal_level hist
+- If recent window ≥ 10 attempts, use recent_accuracy_30; else fall back to lifetime.
+- Map accuracy to level:
+  - ≥ 0.8 → HARD
+  - 0.6–0.79 → MEDIUM
+  - < 0.6 → EASY
+
+2) Session adjustment → session_bias
+- If attempts_in_session ≥ 5 and session_accuracy ≥ 0.8 → bias +1 level (E→M, M→H, H stays H)
+- If attempts_in_session ≥ 4 and session_accuracy ≤ 0.5 → bias -1 level (H→M, M→E, E stays E)
+- Otherwise → no change
+
+3) Streak modulation → streak_bias
+- Every 3 consecutive correct → +1 level (max HARD)
+- Every 2 consecutive incorrect → -1 level (min EASY)
+- Reset opposite streak on outcome
+
+4) Target level
+- target = apply_bias(hist, session_bias), then apply_bias(target, streak_bias)
+- Early session dampening: if attempts_in_session < 3, ignore streak_bias
+
+5) Cooldown and step size
+- Allow at most one level change every K attempts (K=2). If cooldown active, keep `cur`.
+- Only move by one step toward target (E↔M↔H), never skip levels.
+
+6) Recovery & mastery (optional, simple)
+- Recovery: if two downward moves happened within last 5 attempts, force one EASY item next, then resume.
+- Mastery: if MEDIUM accuracy ≥ 90% over ≥10 attempts, default hist to HARD; if EASY accuracy ≥ 90% over ≥10, default hist to MEDIUM.
+
+7) Content availability
+- If no items at `cur`, try nearest: same subject at MEDIUM, then EASY/HARD as applicable; record deviation for stocking.
+
+Example
+- cur=MEDIUM, lifetime=0.72, recent=0.80, session=0.83 (6 attempts), correct_streak=3
+- hist → HARD; session_bias → +1 (already at HARD, stays HARD); streak_bias → +1 (still HARD)
+- Cooldown allows one step per 2 attempts → from MEDIUM move to HARD (not beyond)
+
+Data model (per child/subject)
+- difficulty_level: enum {EASY, MEDIUM, HARD}
+- streaks: {correct, incorrect}
+- aggregates: {lifetime_accuracy, recent_accuracy_30}
+- per_level_stats: {EASY|MEDIUM|HARD → {attempts, accuracy}}
+- last_adjust_attempt_idx: int
+
+Pseudocode (server or client helper)
+- input: state, outcome (correct: boolean)
+- update streaks/accuracies and per_level_stats
+- compute hist level from accuracy thresholds
+- compute session_bias and streak_bias
+- if attempts_in_session < 3, ignore streak_bias
+- target = apply_bias(hist, session_bias); target = apply_bias(target, streak_bias)
+- if cooldown active, next = cur; else next = step_one_toward(cur, target)
+- apply recovery if triggered; ensure next in {E, M, H}
+- persist updated state
+
+Tuning/Validation
+- Tune weights (0.7/0.3) and thresholds (streak, session) via A/B tests.
+- Track: time-to-master, incorrect_streak length, difficulty variance.
+- Add grade-based caps: limit max increases per session for younger grades.
+
+---
+
+## Implementation Status
+
+### ✅ Foundation (Completed)
+- [x] **Basic adaptive difficulty** - `_difficulty_sequence()` function in `question_picker.py`
+  - Selects difficulty based on overall accuracy (≥95% → hard, ≥80% → progressive, <80% → easy)
+  - Requires ≥10 attempts for high-mastery detection
+- [x] **Frontend UI** - "🎯 Adaptive (Recommended)" option in difficulty selector
+  - Default difficulty mode for new sessions
+  - Helper text explaining adaptive behavior
+- [x] **Logging** - Enhanced logging for adaptive decisions
+  - Shows performance analysis (correct/total = accuracy%)
+  - Logs which difficulty sequence was selected and why
+- [x] **Progress tracking** - `child_progress()` in postgres_repo.py
+  - Tracks overall accuracy (returned as integer 0-100)
+  - Tracks current streak
+  - Subject-level breakdown with accuracy
+
+### 🚧 Not Yet Implemented (Full CLAUDE_PLAN4 Features)
+The current implementation is a **simplified baseline**. The full plan below describes advanced features not yet built.
+
+---
+
+## Phased Implementation Plan (Checklist)
+
+### P0 — Baseline Cursor + Logging
+- [ ] Add `difficulty_cursor` (float), `correct_streak`, `incorrect_streak` to per-child/subject state in the DB.
+- [ ] Compute `lifetime_accuracy` and `recent_accuracy_30` aggregates during attempt writes.
+- [ ] Implement a pure function `compute_next_difficulty(state, session, outcome)` in backend (Python) with unit tests.
+- [ ] Log inputs/outputs for each adjustment to aid tuning (structured logs).
+- [ ] Expose current cursor in `GET /progress/{child_id}` for visibility.
+
+### P1 — Apply Logic in Question Fetch
+- [ ] Wire logic into `POST /questions/fetch` to select difficulty using `difficulty_cursor` and step toward `d_target` by 0.5.
+- [ ] Add content-availability fallback (±0.5, ±1.0, …) with a “deviation” metric.
+- [ ] Persist cursor and streak updates after each attempt (`POST /attempts`).
+- [ ] Add cooldown enforcement (one step every K=2 attempts) stored as `last_adjust_attempt_idx`.
+- [ ] Update OpenAPI schema docs and generate TS types for the client.
+
+### P2 — Mastery, Recovery, and Session Signals
+- [ ] Track session-level stats in memory (or Redis): `session_accuracy`, `attempts_in_session`.
+- [ ] Implement mastery rule (≥10 attempts and ≥90% accuracy at level L → bias +0.5 once per session when `d_cur ≤ L`).
+- [ ] Implement recovery rule (two down-steps within last 5 attempts → inject one easier item, then resume).
+- [ ] Add dampening for early session attempts (<3) to halve adjustments.
+- [ ] Add admin toggles/flags to enable/disable mastery/recovery for A/B testing.
+
+### P3 — Client Integration + Telemetry
+- [ ] Add a small TS helper mirroring the backend function for optimistic UI prediction.
+- [ ] Surface current difficulty, streak, and recent accuracy in the UI (teacher/parent view).
+- [ ] Add metrics dashboards: time-to-master, streak volatility, deviation pressure.
+- [ ] Capture frustration proxy (max `incorrect_streak`) and alert on spikes.
+
+### P4 — Tuning & Safeguards
+- [ ] Run A/B tests to tune weights (history vs. session) and thresholds.
+- [ ] Grade-based caps: restrict max up-steps per session for younger grades.
+- [ ] Anti-oscillation: detect ping-pong patterns and temporarily freeze adjustments.
+- [ ] Content backfill: when deviation pressure is high, trigger generation/stocking jobs for scarce difficulty bands.
+
+Deliverables per phase
+- Code: function + endpoint integration + tests.
+- Docs: README update with rules and knobs.
+- Metrics: Grafana/Render logs panels with key indicators.

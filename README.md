@@ -1,23 +1,36 @@
 # studybuddy
 
-FastAPI + Supabase proof-of-concept that helps parents guide children through Common Core-aligned practice quizzes.
+FastAPI + React + Supabase proof-of-concept that helps parents guide children through Common Core-aligned practice quizzes.
 
 ## Status
-Phase 3 is complete: adaptive question delivery, OpenAI-powered (or mock) generation, pacing presets, and Supabase-ready data access build on the Phase 2 flows.
+**Phase 3 Complete**: Adaptive question delivery, OpenAI-powered (or mock) generation, pacing presets, and Supabase-ready data access.
+
+**React Frontend**: Full React 19 + TypeScript frontend with authentication, child management, adaptive practice sessions, and real-time progress tracking.
 
 ## Project Layout
 ```
 studybuddy/
   backend/
-    app.py
+    app.py              # FastAPI app with React integration
     deps.py
     models.py
-    routes/
-    services/
+    routes/             # API endpoints
+    services/           # Business logic
     db/
       supabase_client.py
-      sql/
+      postgres_repo.py  # Database operations
+      sql/              # Schema, migrations, seeds
   tests/
+src/
+  ui/
+    web/                # React frontend
+      src/
+        components/     # UI components and panels
+        contexts/       # React contexts (Auth, Children, Practice)
+        pages/          # Auth and Dashboard pages
+        services/       # API client services
+      dist/             # Production build (served by FastAPI)
+scripts/                # Database migration and seeding scripts
 Dockerfile
 Makefile
 render.yaml
@@ -26,33 +39,88 @@ requirements-dev.txt
 ```
 
 ## Getting Started
+
+### Backend Setup
 1. Create a virtualenv and install dependencies:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv testai-env
+   source testai-env/bin/activate
    pip install -r requirements-dev.txt
    ```
+
 2. Configure environment variables:
    ```bash
    cp .env.example .env
-   # fill in Supabase + OpenAI credentials (leave STUDYBUDDY_MOCK_AI=1 for offline generation)
+   # Fill in Supabase + OpenAI credentials
+   # Set STUDYBUDDY_DATA_MODE=supabase for production
+   # Set STUDYBUDDY_MOCK_AI=1 for offline AI generation testing
    ```
-3. Run the backend locally:
+
+3. Run the backend:
    ```bash
    make dev
    ```
-   Visit `http://localhost:8000/static/` to view the placeholder UI. Health check is under `http://localhost:8000/healthz`.
+   Backend runs on `http://localhost:8000`. Health check: `http://localhost:8000/healthz`
 
-4. (Optional) Run the automated tests:
+### Frontend Setup
+1. Navigate to the React app directory:
    ```bash
-   make test
+   cd src/ui/web
    ```
 
-### Authentication
-- `POST /auth/signup` – create a parent account (in-memory for now) and receive a bearer token.
-- `POST /auth/login` – authenticate an existing parent. Tokens must be supplied via `Authorization: Bearer <token>` for the protected routes listed below.
+2. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
 
-### Child & Quiz Workflow
+3. **For Development** - Run with hot-reload (requires backend running on port 8000):
+   ```bash
+   npm run dev
+   ```
+   Frontend runs on `http://localhost:5173` with API proxy to backend.
+
+4. **For Production** - Build and serve through FastAPI:
+   ```bash
+   npm run build
+   # The build outputs to dist/ which FastAPI serves automatically
+   # Visit http://localhost:8000 to access the React app
+   ```
+
+### Running Tests
+```bash
+# Backend tests
+make test
+
+# Frontend type checking
+cd src/ui/web && npm run typecheck
+
+# Frontend linting
+cd src/ui/web && npm run lint
+```
+
+## Features
+
+### React Frontend
+- **Authentication**: Sign up and login with secure token-based authentication
+- **Child Management**: Add, edit, and delete child profiles with grade tracking
+- **Adaptive Practice Sessions**:
+  - Select subject, topic, and subtopic for targeted practice
+  - Dynamic difficulty adjustment based on performance history
+  - Real-time question delivery with immediate feedback
+  - Visual feedback with color-coded answer buttons
+- **Progress Tracking**:
+  - Overall accuracy and current streak display
+  - Subject-level breakdown with visual progress bars
+  - Real-time updates after each question
+- **Modern UI**: Clean, accessible design with smooth animations and responsive layout
+
+### API Endpoints
+
+#### Authentication
+- `POST /auth/signup` – create a parent account and receive a bearer token
+- `POST /auth/login` – authenticate an existing parent. Tokens must be supplied via `Authorization: Bearer <token>` for protected routes
+
+#### Child & Quiz Workflow
 - `GET /children` / `POST /children` – manage child profiles.
 - `POST /questions/fetch` – fetch unseen, grade-aware multiple choice questions. Falls back to OpenAI generation (or deterministic mock) when inventory is low, and queues background top ups.
 - `POST /attempts` – log attempts, persist correctness, and prevent repeats on correct answers.
@@ -71,6 +139,29 @@ requirements-dev.txt
 - `make lint` – bytecode compilation sanity check (placeholder until Phase 4).
 - `make test` – run backend unit tests (Vitest/Playwright arrive in later phases).
 
-## Next Steps
-- Phase 2 will add Supabase authentication, child management flows, standards catalog, and initial quiz loop using seeded questions.
-- See `PLAN_FILE.md` for the full phased roadmap.
+## Technical Stack
+- **Backend**: FastAPI, Python 3.11+, Pydantic v2
+- **Frontend**: React 19, TypeScript, Vite
+- **Database**: PostgreSQL via Supabase
+- **AI**: OpenAI GPT-4 for question generation (with mock mode for testing)
+- **Deployment**: Render.com ready (see `render.yaml`)
+
+## Architecture Highlights
+- **Adaptive Difficulty**: Questions automatically adjust based on child's performance history, streaks, and session accuracy
+- **Smart Question Selection**: Prioritizes unseen questions, tracks per-child history, maintains question inventory with background generation
+- **Subtopic System**: Intelligent subtopic selection based on unseen question availability and sequence order
+- **Real-time Updates**: React contexts with event-driven architecture for instant UI updates
+- **Type Safety**: End-to-end type safety with Pydantic models and TypeScript interfaces
+
+## Development Roadmap
+- ✅ **Phase 1**: Developer foundations and scaffolding
+- ✅ **Phase 2**: Core authentication and quiz flows
+- ✅ **Phase 3**: AI generation and adaptive delivery
+- ✅ **React Frontend**: Full UI implementation with adaptive practice
+- 🚧 **Phase 4**: Advanced adaptive features (see `CLAUDE_PLAN4`)
+  - Session-based adjustments
+  - Mastery detection
+  - Recovery mechanisms
+  - Enhanced telemetry
+
+See `CLAUDE_PLAN3` and `CLAUDE_PLAN4` for detailed implementation plans.
