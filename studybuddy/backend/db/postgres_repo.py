@@ -445,11 +445,12 @@ class PostgresRepository:
                 attempts = [dict(row) for row in cur.fetchall()]
 
                 if not attempts:
-                    return {"attempted": 0, "correct": 0, "accuracy": 0.0, "current_streak": 0, "by_subject": {}}
+                    return {"attempted": 0, "correct": 0, "accuracy": 0, "current_streak": 0, "by_subject": {}}
 
                 total = len(attempts)
                 correct = sum(1 for attempt in attempts if attempt.get("correct"))
-                accuracy = correct / total if total else 0.0
+                # Convert to percentage and round to integer (0-100)
+                accuracy = round((correct / total * 100)) if total else 0
 
                 streak = 0
                 for attempt in reversed(attempts):
@@ -466,9 +467,11 @@ class PostgresRepository:
                 )
                 subject_map = {row["id"]: row["subject"] for row in cur.fetchall()}
 
-                by_subject: dict[str, dict[str, float]] = {}
+                by_subject: dict[str, dict[str, int]] = {}
                 for attempt in attempts:
                     subject = subject_map.get(attempt["question_id"], "unknown")
+                    # Capitalize subject name for consistency
+                    subject = subject.capitalize() if subject else "Unknown"
                     stats = by_subject.setdefault(subject, {"correct": 0, "total": 0})
                     stats["total"] += 1
                     if attempt.get("correct"):
@@ -476,7 +479,8 @@ class PostgresRepository:
 
                 for subject, stats in by_subject.items():
                     total_subject = stats["total"]
-                    stats["accuracy"] = stats["correct"] / total_subject if total_subject else 0.0
+                    # Convert to percentage and round to integer (0-100)
+                    stats["accuracy"] = round((stats["correct"] / total_subject * 100)) if total_subject else 0
 
                 return {
                     "attempted": total,

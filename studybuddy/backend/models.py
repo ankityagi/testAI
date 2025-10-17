@@ -113,13 +113,13 @@ class AttemptResult(BaseModel):
 class SubjectBreakdown(BaseModel):
     correct: int
     total: int
-    accuracy: float
+    accuracy: int  # Percentage 0-100
 
 
 class ProgressResponse(BaseModel):
     attempted: int
     correct: int
-    accuracy: float
+    accuracy: int  # Percentage 0-100
     current_streak: int
     by_subject: dict[str, SubjectBreakdown]
 
