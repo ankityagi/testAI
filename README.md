@@ -144,6 +144,7 @@ cd src/ui/web && npm run lint
 - **Frontend**: React 19, TypeScript, Vite
 - **Database**: PostgreSQL via Supabase
 - **AI**: OpenAI GPT-4 for question generation (with mock mode for testing)
+- **Standards**: Eureka Math (EngageNY) for mathematics, Common Core for other subjects
 - **Deployment**: Render.com ready (see `render.yaml`)
 
 ## Architecture Highlights

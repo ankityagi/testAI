@@ -84,9 +84,9 @@ Copy `.env.example` to `.env` and configure:
 
 **Data Modes**: Supports both in-memory (development) and Supabase (production) data persistence through configurable repository pattern.
 
-**Question Generation**: Hybrid system using seeded questions with fallback to OpenAI generation when inventory is low. Includes deduplication via hashing and adaptive difficulty.
+**Question Generation**: Hybrid system using seeded questions with fallback to OpenAI generation when inventory is low. Includes deduplication via hashing and adaptive difficulty. Math questions use Eureka Math (EngageNY) standards, other subjects use Common Core.
 
-**Child Management**: Grade-aware profiles that drive question selection and Common Core standards alignment.
+**Child Management**: Grade-aware profiles that drive question selection and standards alignment (Eureka Math for mathematics, Common Core for other subjects).
 
 **Adaptive Difficulty**: Baseline implementation in `question_picker.py` adjusts difficulty based on performance history (≥95% → hard, ≥80% → progressive, <80% → easy). Advanced features planned in CLAUDE_PLAN4.
 
