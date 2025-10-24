@@ -133,3 +133,6 @@ Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery
 - Use claude_changelog file to document all changes added to the code
 - along with each PR update the README file, and USAGE_FILE
 - Always use gh cli when working with github and make sure to track all new files
+- always update checkpoint file, and readme  when making PR
+- when working on a checklist remember to update the list when any item is complete
+- when working on a checklist remember to update the list when any item is complete

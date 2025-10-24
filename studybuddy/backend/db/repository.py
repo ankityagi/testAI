@@ -96,6 +96,24 @@ class Repository(Protocol):
 
     def count_subtopics(self, *, subject: str, grade: int | None = None, topic: str | None = None) -> int: ...
 
+    # Session tracking methods
+    def create_session(
+        self,
+        *,
+        child_id: str,
+        subject: str | None = None,
+        topic: str | None = None,
+        subtopic: str | None = None,
+    ) -> dict: ...
+
+    def get_active_session(self, child_id: str) -> dict | None: ...
+
+    def get_session(self, session_id: str) -> dict | None: ...
+
+    def end_session(self, session_id: str) -> dict: ...
+
+    def get_session_summary(self, session_id: str) -> dict: ...
+
 
 def build_repository() -> Repository:
     import logging

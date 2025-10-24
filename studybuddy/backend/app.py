@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
-from .routes import admin, attempts, children, health, progress, questions, standards, auth
+from .routes import admin, attempts, children, health, progress, questions, sessions, standards, auth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(questions.router, prefix="/questions", tags=["questions"])
     app.include_router(attempts.router, prefix="/attempts", tags=["attempts"])
     app.include_router(progress.router, prefix="/progress", tags=["progress"])
+    app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
     app.include_router(standards.router, prefix="/standards", tags=["standards"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
 

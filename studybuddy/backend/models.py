@@ -95,6 +95,7 @@ class Question(BaseModel):
 class QuestionResponse(BaseModel):
     questions: list[Question]
     selected_subtopic: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class AttemptSubmission(BaseModel):
@@ -122,6 +123,30 @@ class ProgressResponse(BaseModel):
     accuracy: int  # Percentage 0-100
     current_streak: int
     by_subject: dict[str, SubjectBreakdown]
+
+
+class Session(BaseModel):
+    """Practice session tracking."""
+    id: str
+    child_id: str
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    subtopic: Optional[str] = None
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SessionSummary(BaseModel):
+    """Summary statistics for a practice session."""
+    session: Session
+    questions_attempted: int
+    questions_correct: int
+    accuracy: int  # Percentage 0-100
+    total_time_ms: int
+    avg_time_per_question_ms: int
+    subjects_practiced: list[str]
 
 
 class Standard(BaseModel):
