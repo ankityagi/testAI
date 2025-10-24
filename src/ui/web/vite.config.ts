@@ -22,6 +22,7 @@ export default defineConfig({
       '/questions': 'http://localhost:8000',
       '/attempts': 'http://localhost:8000',
       '/progress': 'http://localhost:8000',
+      '/sessions': 'http://localhost:8000',
       '/standards': 'http://localhost:8000',
       '/admin': 'http://localhost:8000',
     },

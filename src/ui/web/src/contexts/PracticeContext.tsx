@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { questionsService } from '../services';
+import { questionsService, sessionsService } from '../services';
 import type {
   Question,
   QuestionRequest,
@@ -27,6 +27,7 @@ interface PracticeContextType {
   currentQuestionIndex: number;
   currentQuestion: QuestionState | null;
   selectedSubtopic: string | null;
+  sessionId: string | null;
   isLoading: boolean;
   error: string | null;
 
@@ -36,6 +37,7 @@ interface PracticeContextType {
   submitAnswer: (childId: string) => Promise<AttemptResult | null>;
   nextQuestion: () => void;
   resetSession: () => void;
+  endSession: () => Promise<void>;
 
   // Session stats
   questionsAnswered: number;
@@ -56,6 +58,7 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionState | null>(null);
   const [selectedSubtopic, setSelectedSubtopic] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +79,7 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
       console.log('[PracticeContext] Received response:', {
         questionCount: response.questions.length,
         selectedSubtopic: response.selected_subtopic,
+        sessionId: response.session_id,
         questions: response.questions.map(q => ({
           id: q.id,
           subject: q.subject,
@@ -88,6 +92,7 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
 
       setQuestions(response.questions);
       setSelectedSubtopic(response.selected_subtopic || null);
+      setSessionId(response.session_id || null);
 
       // Initialize first question
       if (response.questions.length > 0) {
@@ -204,11 +209,35 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
     }
   }, [currentQuestionIndex, questions]);
 
+  const endSession = useCallback(async (): Promise<void> => {
+    if (!sessionId) {
+      console.warn('[PracticeContext] No active session to end');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      console.log('[PracticeContext] Ending session:', sessionId);
+      await sessionsService.endSession(sessionId);
+      console.log('[PracticeContext] Session ended successfully');
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('[PracticeContext] Error ending session:', apiError);
+      setError(apiError.detail || 'Failed to end session');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sessionId]);
+
   const resetSession = useCallback((): void => {
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setCurrentQuestion(null);
     setSelectedSubtopic(null);
+    setSessionId(null);
     setQuestionsAnswered(0);
     setCorrectAnswers(0);
     setError(null);
@@ -223,6 +252,7 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
     currentQuestionIndex,
     currentQuestion,
     selectedSubtopic,
+    sessionId,
     isLoading,
     error,
     fetchQuestions,
@@ -230,6 +260,7 @@ export const PracticeProvider: React.FC<PracticeProviderProps> = ({ children }) 
     submitAnswer,
     nextQuestion,
     resetSession,
+    endSession,
     questionsAnswered,
     correctAnswers,
     accuracy,

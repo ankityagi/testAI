@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, ChildrenProvider, PracticeProvider } from './contexts';
 import { ProtectedRoute } from './components';
 import { Auth, Dashboard, ThemeDemo } from './pages';
+import { SessionSummary } from './pages/SessionSummary';
 
 const App: React.FC = () => {
   return (
@@ -26,6 +27,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/session/:sessionId/summary"
+                element={
+                  <ProtectedRoute>
+                    <SessionSummary />
                   </ProtectedRoute>
                 }
               />

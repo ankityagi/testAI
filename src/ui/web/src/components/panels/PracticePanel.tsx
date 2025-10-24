@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { theme } from '../../../../../core/theme';
 import { usePractice, useChildren } from '../../contexts';
 import { Button, Toast } from '..';
@@ -11,10 +12,12 @@ import { questionsService } from '../../services';
 import type { QuestionRequest } from '../../types/api';
 
 export const PracticePanel: React.FC = () => {
+  const navigate = useNavigate();
   const { selectedChild } = useChildren();
   const {
     currentQuestion,
     selectedSubtopic,
+    sessionId,
     isLoading,
     error,
     fetchQuestions,
@@ -22,6 +25,7 @@ export const PracticePanel: React.FC = () => {
     submitAnswer,
     nextQuestion,
     resetSession,
+    endSession,
     questionsAnswered,
     correctAnswers,
     accuracy,
@@ -104,6 +108,29 @@ export const PracticePanel: React.FC = () => {
   const handleNextQuestion = (): void => {
     nextQuestion();
     setShowResult(false);
+  };
+
+  const handleEndSession = async (): Promise<void> => {
+    console.log('[PracticePanel] handleEndSession called, sessionId:', sessionId);
+
+    if (!sessionId) {
+      console.warn('[PracticePanel] No sessionId available, resetting session without API call');
+      resetSession();
+      setShowResult(false);
+      return;
+    }
+
+    try {
+      console.log('[PracticePanel] Ending session:', sessionId);
+      await endSession();
+      console.log('[PracticePanel] Session ended successfully, navigating to summary');
+      // Navigate to session summary
+      navigate(`/session/${sessionId}/summary`);
+    } catch (err) {
+      console.error('[PracticePanel] Error ending session:', err);
+      const errorMessage = (err as { detail?: string })?.detail || 'Failed to end session';
+      setToast({ message: errorMessage, variant: 'error' });
+    }
   };
 
   const handleResetSession = (): void => {
@@ -275,9 +302,16 @@ export const PracticePanel: React.FC = () => {
             <p style={{ color: theme.colors.text.secondary, marginBottom: theme.spacing[4] }}>
               You answered {questionsAnswered} questions with {accuracy}% accuracy
             </p>
-            <Button variant="primary" onClick={handleResetSession}>
-              Start New Session
-            </Button>
+            <div style={{ display: 'flex', gap: theme.spacing[3], justifyContent: 'center' }}>
+              <Button variant="secondary" onClick={handleResetSession}>
+                Start New Session
+              </Button>
+              {sessionId && (
+                <Button variant="primary" onClick={handleEndSession}>
+                  View Summary
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           // Setup form
@@ -476,7 +510,7 @@ export const PracticePanel: React.FC = () => {
               <Button variant="primary" fullWidth onClick={handleNextQuestion}>
                 Next Question
               </Button>
-              <Button variant="ghost" onClick={handleResetSession}>
+              <Button variant="ghost" onClick={handleEndSession}>
                 End Session
               </Button>
             </>

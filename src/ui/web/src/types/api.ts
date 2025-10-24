@@ -69,6 +69,7 @@ export interface Question {
 export interface QuestionResponse {
   questions: Question[];
   selected_subtopic?: string | null;
+  session_id?: string | null;
 }
 
 export interface AttemptSubmission {
@@ -119,4 +120,27 @@ export interface AdminGenerateRequest {
 export interface ApiError {
   detail: string;
   status?: number;
+}
+
+// Session tracking types
+export interface Session {
+  id: string;
+  child_id: string;
+  subject?: string | null;
+  topic?: string | null;
+  subtopic?: string | null;
+  started_at: string;
+  ended_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionSummary {
+  session: Session;
+  questions_attempted: number;
+  questions_correct: number;
+  accuracy: number; // Integer percentage 0-100
+  total_time_ms: number;
+  avg_time_per_question_ms: number;
+  subjects_practiced: string[];
 }
