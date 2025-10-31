@@ -341,43 +341,43 @@ Execution Checklist
 
 Phase 1 — Backend Foundations
 - Data Model & Schema
-  - [ ] Add Pydantic models to `studybuddy/backend/models.py` (QuizSession, QuizSessionQuestion)
-  - [ ] Add tables `quiz_sessions`, `quiz_session_questions` with indexes and enums
-  - [ ] Write migration_add_quiz_sessions.sql with rollback strategy
-  - [ ] Create scripts/run_quiz_migration.sh execution script
+  - [x] Add Pydantic models to `studybuddy/backend/models.py` (QuizSession, QuizSessionQuestion)
+  - [x] Add tables `quiz_sessions`, `quiz_session_questions` with indexes and enums
+  - [x] Write migration_add_quiz_sessions.sql with rollback strategy
+  - [x] Create scripts/run_quiz_migration.sh execution script
   - [ ] Test migration on local/dev DB before Supabase
-  - [ ] Update repo layer (`postgres_repo.py`) with CRUD for sessions/items
+  - [x] Update repo layer (`postgres_repo.py`) with CRUD for sessions/items
   - [ ] Update in-memory repo (if exists) for data mode parity
   - [ ] Add mode-specific tests for quiz persistence
 
 - Backend Services
-  - [ ] Create `studybuddy/backend/services/quiz_selection.py`
-  - [ ] Implement selection service with mixed difficulty + unseen-first policy
-  - [ ] Wire Eureka (math) alignment and AI/mock fallback when low inventory
-  - [ ] Add duplicate prevention within same quiz
-  - [ ] Add recent-attempt window constraints with safe fallback
-  - [ ] Create `studybuddy/backend/services/quiz_grading.py`
-  - [ ] Implement grading service with per-item correctness and score aggregation
-  - [ ] Calculate time_taken and track unanswered_count
+  - [x] Create `studybuddy/backend/services/quiz_selection.py`
+  - [x] Implement selection service with mixed difficulty + unseen-first policy
+  - [x] Wire Eureka (math) alignment and AI/mock fallback when low inventory
+  - [x] Add duplicate prevention within same quiz
+  - [x] Add recent-attempt window constraints with safe fallback
+  - [x] Create `studybuddy/backend/services/quiz_grading.py`
+  - [x] Implement grading service with per-item correctness and score aggregation
+  - [x] Calculate time_taken and track unanswered_count
 
 - Backend Routes & Security
-  - [ ] Create `studybuddy/backend/routes/quiz.py`
-  - [ ] Add routes: POST /quiz/sessions (with conflict check), GET /quiz/sessions (list)
-  - [ ] Add routes: GET /quiz/sessions/:id, POST /quiz/sessions/:id/submit
-  - [ ] Add optional POST /quiz/sessions/:id/expire endpoint
-  - [ ] Sanitize response payloads to exclude correct answers until submission
-  - [ ] Add authentication & child_id validation to all endpoints
+  - [x] Create `studybuddy/backend/routes/quiz.py`
+  - [x] Add routes: POST /quiz/sessions (with conflict check), GET /quiz/sessions (list)
+  - [x] Add routes: GET /quiz/sessions/:id, POST /quiz/sessions/:id/submit
+  - [x] Add optional POST /quiz/sessions/:id/expire endpoint
+  - [x] Sanitize response payloads to exclude correct answers until submission
+  - [x] Add authentication & child_id validation to all endpoints
   - [ ] Add rate limiting for quiz creation (max 5 active per child)
-  - [ ] Handle expired session returns (410 Gone)
-  - [ ] Implement idempotent submission
-  - [ ] Add validation for question_count (5-30) and duration_sec (300-7200)
+  - [x] Handle expired session returns (410 Gone)
+  - [x] Implement idempotent submission
+  - [x] Add validation for question_count (5-30) and duration_sec (300-7200)
 
 - Backend Logging & Analytics
-  - [ ] Add logging with [QUIZ] prefix for all operations
-  - [ ] Log quiz creation with child_id, subject, topic, question_count, difficulty_mix
-  - [ ] Log selection: inventory depth, unseen count, fallback triggers
-  - [ ] Log submission: time_taken, score, unanswered_count
-  - [ ] Log errors: insufficient inventory, generation failures, auth failures
+  - [x] Add logging with [QUIZ] prefix for all operations
+  - [x] Log quiz creation with child_id, subject, topic, question_count, difficulty_mix
+  - [x] Log selection: inventory depth, unseen count, fallback triggers
+  - [x] Log submission: time_taken, score, unanswered_count
+  - [x] Log errors: insufficient inventory, generation failures, auth failures
 
 - Backend Testing
   - [ ] Selection: Returns requested question_count with approx. mix 30/50/20 (±1 item)
@@ -401,7 +401,7 @@ Phase 1 — Backend Foundations
   - [ ] Migration runs successfully on local DB without errors
   - [ ] Migration runs successfully on Supabase without errors
   - [ ] All Phase 1 backend tests pass (pytest with ≥80% coverage)
-  - [ ] Backend linting passes (make lint)
+  - [x] Backend linting passes (make lint)
   - [ ] Can create quiz via API and receive question set (without answers)
   - [ ] Can submit quiz via API and receive graded results
   - [ ] Authentication rejects requests without valid token
