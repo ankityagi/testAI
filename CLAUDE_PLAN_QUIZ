@@ -413,9 +413,10 @@ Phase 1 — Backend Foundations
 
 Phase 2 — Frontend Foundations
 - Frontend Services & Context
-  - [ ] Create `src/ui/web/src/services/quiz.service.ts`
-  - [ ] Add create/list/get/submit methods to quiz service
-  - [ ] Add error handling for network failures, session not found, expired sessions
+  - [x] Add quiz TypeScript types to `src/ui/web/src/types/api.ts` (10 interfaces)
+  - [x] Create `src/ui/web/src/services/quiz.service.ts`
+  - [x] Add create/list/get/submit methods to quiz service
+  - [x] Add error handling for network failures, session not found, expired sessions
   - [ ] Create `src/ui/web/src/contexts/QuizContext.tsx`
   - [ ] Implement state: session meta, questions[], answers map, isSubmitting, timeLeft, isLoading, error
   - [ ] Implement actions: initializeQuiz, selectAnswer, submitQuiz, reset
