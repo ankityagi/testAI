@@ -1,0 +1,714 @@
+Title: Timed Quiz Mode — Classroom-Style (All Questions At Once)
+
+Objective
+- Add a non-adaptive, timed Quiz mode alongside existing Practice.
+- Show all questions at once, balanced difficulty mix (not tailored to child).
+- Follow Eureka Math (EngageNY) testing style and current question language.
+- Results include overall score and a table of incorrect items with explanations.
+- Reduce repeats across recent history while allowing previously seen questions.
+
+Scope
+- Backend (FastAPI): models, endpoints, selection/grading services, schema.
+- Frontend (React/TS): services, context, pages, welcome choice, routing, timer.
+- Tests: unit + API (backend), unit + component (frontend), Eureka-style fixtures.
+- Docs: README/USAGE/CLAUDE updates.
+
+Phase 1 — Backend Foundations
+1) Data Model (studybuddy/backend/models.py)
+   - QuizSession: id, child_id, subject, topic, subtopic (nullable), status
+     (active|completed|expired), duration_sec, difficulty_mix_config, started_at,
+     submitted_at, score, total_questions.
+   - QuizSessionQuestion: id, quiz_session_id, question_id, index,
+     correct_choice, explanation, selected_choice (nullable), is_correct (nullable).
+
+2) Schema (studybuddy/backend/db/sql/)
+   - Create migration_add_quiz_sessions.sql with tables quiz_sessions,
+     quiz_session_questions with indexes on child_id, created_at, and status;
+     enum for status.
+   - Include rollback strategy in migration file.
+   - Create corresponding seed file (optional initial quiz sessions).
+   - Create script: scripts/run_quiz_migration.sh for execution.
+   - Test migration on local dev before applying to Supabase.
+
+3) Data Mode Compatibility
+   - Update in-memory repository (if exists) to support quiz sessions.
+   - Ensure both memory and Supabase modes have feature parity.
+   - Add mode-specific tests for quiz persistence.
+
+4) Routes (studybuddy/backend/routes/quiz.py)
+   - Authentication & Authorization:
+     * All quiz endpoints require bearer token authentication.
+     * Validate child_id belongs to authenticated user.
+     * Prevent cross-user quiz access.
+     * Rate limit quiz creation (e.g., max 5 active quizzes per child).
+
+   - POST /quiz/sessions
+     Input: child_id, subject, topic, subtopic?, question_count, duration_sec,
+            difficulty_mix (e.g., {easy:0.3,medium:0.5,hard:0.2}).
+     Validation:
+       * Check for existing active quiz for same child/subject/topic.
+       * Return 409 Conflict with active session_id if exists.
+       * Validate question_count (min: 5, max: 30).
+       * Validate duration_sec (min: 300, max: 7200).
+     Behavior: select fixed set of questions upfront; unseen-first, allow repeats
+               if inventory is thin; math → Eureka standards; return session meta
+               and questions (without answers/explanations).
+
+   - GET /quiz/sessions (list)
+     Return: child's recent quiz sessions with status, score, created date.
+     Supports pagination and filtering by subject/status.
+
+   - GET /quiz/sessions/{quiz_id}
+     Return: session state, remaining time (calculated from server timestamp),
+             ordered questions (no answers/explanations).
+     Auto-expire if 24+ hours since creation without submission.
+
+   - POST /quiz/sessions/{quiz_id}/submit
+     Input: [{question_id, selected_choice}]. Grade, persist per-item results,
+            compute score. Return summary + incorrect-only table with explanations.
+     Validation:
+       * Verify session not already submitted.
+       * Verify session not expired (return 410 Gone if expired).
+       * Treat unanswered questions as incorrect.
+       * Prevent double submission (idempotency).
+
+   - POST /quiz/sessions/{quiz_id}/expire (optional)
+     Mark session expired; frontend may auto-submit with current selections.
+
+   - Session Lifecycle Rules:
+     * Allow only 1 active quiz per child per subject/topic.
+     * Auto-expire sessions 24 hours after creation if not submitted.
+     * Prevent submission of expired sessions (return 410 Gone).
+
+5) Services
+   - Selection (studybuddy/backend/services/quiz_selection.py)
+     * Mixed difficulty sampler honoring proportions; no per-child tailoring.
+     * Unseen-first per child with recent-repeat window (e.g., avoid last K attempts
+       per subtopic); allow repeats when necessary.
+     * Verify duplicates do not appear within the same quiz.
+     * For math, ensure Eureka Math alignment (reuse genai.py hooks). Generate
+       missing inventory via existing AI/mock pipeline with deduplication.
+     * Return error if insufficient questions available (min 5 required).
+
+   - Grading (studybuddy/backend/services/quiz_grading.py)
+     * Single-pass grading on submission. Persist selected_choice, is_correct,
+       score aggregation, submitted_at.
+     * Calculate time_taken from started_at to submitted_at.
+     * Track unanswered_count for analytics.
+
+   - Repo (studybuddy/backend/db/postgres_repo.py)
+     * Create/fetch/submit/expire quiz sessions and items.
+     * Check for active session conflicts.
+     * List quiz history with pagination.
+
+   - Logging (with prefix [QUIZ]):
+     * Quiz creation: child_id, subject, topic, question_count, difficulty_mix.
+     * Selection: inventory depth, unseen count, fallback triggers.
+     * Submission: time_taken, score, unanswered_count.
+     * Generation fallback: OpenAI calls, deduplication hits.
+     * Errors: insufficient inventory, generation failures, auth failures.
+
+Phase 2 — Frontend Foundations (src/ui/web)
+1) Services (src/ui/web/src/services/quiz.service.ts)
+   - create(params), list(childId), get(sessionId), submit(sessionId, answers[]).
+   - Error handling for network failures, session not found, expired sessions.
+
+2) Context (src/ui/web/src/contexts/QuizContext.tsx)
+   - State: session meta, questions[], answers map, isSubmitting, timeLeft,
+            isLoading, error.
+   - Actions: initializeQuiz, selectAnswer(qid, choice), submitQuiz,
+              startTimer/autoSubmitOnTimeout, reset.
+   - Timer Management:
+     * Store quiz start time from backend (server timestamp).
+     * Calculate remaining time on each sync with backend.
+     * Sync timer every 10s with backend via GET /quiz/sessions/{id}.
+     * Handle timezone differences with UTC timestamps.
+     * Auto-resume timer on page refresh.
+     * Trigger auto-submit at 0:00 with current selections.
+
+3) Welcome Choice
+   - On child selection screen, add two primary actions:
+     * Practice → existing flow.
+     * Quiz → opens setup modal to choose subject/topic/subtopic?, question_count,
+              duration_sec, difficulty mix preset (e.g., Balanced 30/50/20).
+   - Show warning if active quiz already exists for selected topic.
+
+4) Pages
+   - QuizPage (src/ui/web/src/pages/QuizPage.tsx)
+     * Responsive design:
+       - Desktop (1440px): 2-column question grid.
+       - Tablet (768px): Single column, sticky timer at top.
+       - Mobile (375px): Single column, compact timer, scroll to submit.
+     * Consider "Jump to question" navigation for 10+ questions.
+     * Ensure touch-friendly radio buttons (min 44px tap target).
+     * Sticky timer bar and submit button.
+     * All questions rendered at once.
+     * Radio selection per question.
+     * Warn on submit if unanswered questions remain.
+     * Auto-submit on timeout.
+     * Loading States:
+       - Quiz loading: Skeleton loader for question list.
+       - Submission: Disabled submit button with "Grading your answers...".
+     * Error States:
+       - Network failure: Retry button with error message.
+       - Session not found: Redirect to dashboard with toast notification.
+       - Session expired: Show message + redirect to setup new quiz.
+
+   - QuizResults (src/ui/web/src/pages/QuizResults.tsx)
+     * Summary: total correct, total, percent, time taken.
+     * Table: incorrect questions with child's answer, correct choice,
+       explanation "how to get the right answer".
+     * Action buttons: "Review All Questions", "Start New Quiz", "Back to Dashboard".
+     * Loading State: Skeleton loader while fetching results.
+     * Error State: Retry if submission failed.
+
+5) Routing
+   - Add /quiz/new, /quiz/:id, /quiz/:id/results.
+
+6) Dashboard Integration
+   - Add "Start Quiz" card next to "Continue Practice" on Dashboard.
+   - Show badge with active quiz count.
+   - Add quiz history section in ProgressPanel with toggle.
+
+Phase 3 — Behavior, Policy, and Style
+1) Difficulty mix presets
+   - Balanced: 30% easy, 50% medium, 20% hard (default). Advanced override allowed.
+
+2) Eureka style & language
+   - Maintain existing stem/choice phrasing and formatting.
+   - Math questions: Eureka-aligned wording and reasoning steps in explanations.
+
+3) Repeat reduction
+   - Add recent-attempt window constraints with safe fallback.
+   - Avoid questions seen within last K attempts/days per child+subtopic.
+   - Allow repeats when inventory constrained.
+
+4) Non-adaptive quiz
+   - Fixed set at creation; no mid-quiz adaptation.
+
+5) Duration Defaults (with custom override)
+   - Smart defaults: Easy: 60s, Medium: 90s, Hard: 120s (weighted by mix).
+   - Formula: duration = (count_easy * 60) + (count_medium * 90) + (count_hard * 120).
+   - Example: 10 questions (30% easy, 50% medium, 20% hard) = 870s ≈ 15 min.
+   - UI shows both question count slider and duration preview.
+   - Allow manual override with min/max constraints.
+
+6) Design & Visual Testing
+   - Follow S-Tier design principles from /context/design-principles.md.
+   - Use design tokens for colors, spacing, typography.
+   - Reuse theme colors by subject; match Practice component styles.
+   - Implement micro-interactions (hover states, focus rings, transitions 150-300ms).
+   - Confirm accessible labels, keyboard navigation, and focus states.
+   - Add submit confirmation modal if unanswered questions remain.
+
+   - After implementation, run Quick Visual Check:
+     * Navigate to quiz setup, quiz page, results page.
+     * Capture full-page screenshots at 1440px viewport.
+     * Check console for errors with mcp__playwright__browser_console_messages.
+
+   - Before PR, run Comprehensive Design Review:
+     * Test responsiveness at 375px, 768px, 1440px.
+     * Verify keyboard navigation and WCAG 2.1 AA compliance.
+     * Test all interactive states (hover, focus, active, disabled).
+     * Validate loading states, error states, empty states.
+
+Phase 4 — Testing (follow "end of Eureka module" style)
+Backend (Pytest)
+ - Selection tests: difficulty proportions, unseen-first with fallback, Eureka hook.
+ - Selection: Returns requested question_count with approx. mix 30/50/20 (±1 item).
+ - Selection: Prioritizes unseen questions; falls back cleanly when inventory low.
+ - Selection: Avoids selecting same question twice in one quiz.
+ - Selection: Invokes Eureka alignment path for math; uses AI/mock when thin.
+ - API tests: create returns questions without answers; submit grades correctly and
+   returns incorrect-only table with explanations; timeout behavior path.
+ - API: Create quiz hides correct answers/explanations pre-submit.
+ - API: Submit grades accurately; returns score and incorrect-only with explanations.
+ - API: Submitting with unanswered items treats them as incorrect.
+ - API: Timeout path auto-submits and grades current selections.
+ - API: Results persisted and retrievable; session status transitions correct.
+
+Frontend (Vitest)
+ - QuizContext: initialize → select → submit → timeout auto-submit.
+ - QuizContext: initialize → selectAnswer → submit → resets on new quiz.
+ - Timer: counts down, triggers autoSubmit at 0, prevents double submit.
+ - Services: create/get/submit call correct endpoints and handle payload.
+ - QuizPage: renders all questions; timer countdown; disabled after submit.
+ - QuizResults: shows summary and incorrect-only with explanations.
+ - Fixtures: tests/fixtures/eureka_*.json with representative items.
+
+Frontend E2E (Playwright)
+ - Welcome choice displays Practice and Quiz; Quiz path navigates correctly.
+ - Quiz setup modal: choose subject/topic, count, duration, mix; creates session.
+ - Quiz page: all questions visible; select answers; sticky timer visible.
+ - Submit flow: warns on unanswered; submits; disables interactions post-submit.
+ - Results page: shows summary and incorrect-only table with explanations.
+ - Timeout path: let timer elapse; auto-submit triggers; results rendered.
+ - Persistence: page reload on results preserves state via API fetch.
+
+Concurrency & Security Tests
+ - Cannot create multiple active quizzes for same child/subject/topic.
+ - Cannot access quiz session belonging to different user.
+ - Cannot submit answers for questions not in the quiz.
+ - Cannot submit same quiz twice (idempotency).
+
+Timer & Expiry Tests
+ - Timer syncs with backend every 10s, handles drift.
+ - Page refresh resumes timer accurately.
+ - Auto-submit triggers exactly at 0:00.
+ - Expired sessions return 410 and cannot be submitted.
+
+Performance Tests
+ - Quiz with 20 questions loads in <2s.
+ - Submission processes in <1s for 20 answers.
+ - Frontend doesn't freeze during answer selection.
+
+Accessibility Tests (WCAG 2.1 AA)
+ - Screen reader announces timer updates every 60s.
+ - All questions navigable via keyboard (Tab, arrow keys).
+ - Radio buttons have visible focus indicators.
+ - Submit button accessible via Enter key.
+ - Results table has proper header associations.
+
+Coverage
+ - Target ≥80% coverage on new code.
+
+Phase 5 — Docs & Rollout
+ - README.md: add Quiz mode overview and API snippets.
+ - USAGE_FILE.md: add create/get/submit examples and flows, comparison table.
+ - CLAUDE.md: architecture notes for fixed-set timed quiz.
+ - context/design-principles.md: quiz-specific patterns if needed.
+ - AGENTS.md: if quiz selection logic is complex enough to document.
+ - API documentation: consider adding Swagger/OpenAPI spec.
+ - User guide: "Practice vs Quiz Mode" comparison table.
+ - Update .env.example with ENABLE_QUIZ_MODE flag description.
+ - Feature flag (optional): ENABLE_QUIZ_MODE=1 for staged rollout.
+
+Phase 6 — Integration & Monitoring
+1) Dashboard Integration
+   - Add "Start Quiz" card next to "Continue Practice" on Dashboard.
+   - Show badge with active quiz count.
+   - Add quiz history section in ProgressPanel with toggle.
+   - Progress Integration:
+     * Add tab: "Practice" vs "Quizzes" in ProgressPanel.
+     * Show quiz history: date, topic, score, time.
+     * Aggregate stats: average quiz score, topics mastered.
+     * Keep separate from adaptive practice metrics initially.
+
+2) Progressive Rollout
+   - Enable ENABLE_QUIZ_MODE=1 in .env.
+   - Test with internal users first.
+   - Monitor error logs for [QUIZ] prefix.
+   - Collect feedback on timing, difficulty mix, explanations.
+
+3) Performance Monitoring
+   - Track P95 latency for quiz creation (<2s target).
+   - Track P95 latency for submission (<1s target).
+   - Monitor OpenAI API usage for generation fallback.
+   - Alert on high failure rates (>5%).
+   - Monitor concurrent quiz attempts per child.
+
+4) User Feedback Loop
+   - Add optional post-quiz feedback modal.
+   - Track: "Was duration appropriate?" "Were questions fair?"
+   - Use feedback to tune default durations and difficulty mixes.
+   - Monitor completion rates and abandonment patterns.
+
+Non-Goals (initial)
+ - Quiz history UI beyond results page (moved to Phase 6).
+ - Teacher dashboards and custom mixes beyond presets.
+ - Adaptive difficulty within quiz (future enhancement).
+ - Question bookmarking or favoriting.
+ - Print/export quiz results.
+
+Resolved Questions
+✓ Default duration per question_count: Use smart defaults (60-90-120s by difficulty)
+  with weighted formula, allow custom override with min/max constraints.
+✓ Include quiz performance in ProgressPanel: YES, add "Practice" vs "Quizzes" toggle
+  tab with separate metrics and history.
+
+Open Questions
+ - Should we allow quiz pause/resume or enforce single-session completion?
+ - Include explanations for correct answers too, or only incorrect?
+ - Allow quiz retry with same questions or always generate new set?
+
+Milestones
+ - M1: Backend endpoints + schema + selection/grading services with tests.
+ - M2: Frontend services/context/pages + welcome choice + E2E happy path.
+ - M3: Repeat-reduction tuning + design polish + coverage target met.
+ - M4: Dashboard integration + monitoring + progressive rollout.
+
+Execution Checklist
+
+Phase 1 — Backend Foundations
+- Data Model & Schema
+  - [ ] Add Pydantic models to `studybuddy/backend/models.py` (QuizSession, QuizSessionQuestion)
+  - [ ] Add tables `quiz_sessions`, `quiz_session_questions` with indexes and enums
+  - [ ] Write migration_add_quiz_sessions.sql with rollback strategy
+  - [ ] Create scripts/run_quiz_migration.sh execution script
+  - [ ] Test migration on local/dev DB before Supabase
+  - [ ] Update repo layer (`postgres_repo.py`) with CRUD for sessions/items
+  - [ ] Update in-memory repo (if exists) for data mode parity
+  - [ ] Add mode-specific tests for quiz persistence
+
+- Backend Services
+  - [ ] Create `studybuddy/backend/services/quiz_selection.py`
+  - [ ] Implement selection service with mixed difficulty + unseen-first policy
+  - [ ] Wire Eureka (math) alignment and AI/mock fallback when low inventory
+  - [ ] Add duplicate prevention within same quiz
+  - [ ] Add recent-attempt window constraints with safe fallback
+  - [ ] Create `studybuddy/backend/services/quiz_grading.py`
+  - [ ] Implement grading service with per-item correctness and score aggregation
+  - [ ] Calculate time_taken and track unanswered_count
+
+- Backend Routes & Security
+  - [ ] Create `studybuddy/backend/routes/quiz.py`
+  - [ ] Add routes: POST /quiz/sessions (with conflict check), GET /quiz/sessions (list)
+  - [ ] Add routes: GET /quiz/sessions/:id, POST /quiz/sessions/:id/submit
+  - [ ] Add optional POST /quiz/sessions/:id/expire endpoint
+  - [ ] Sanitize response payloads to exclude correct answers until submission
+  - [ ] Add authentication & child_id validation to all endpoints
+  - [ ] Add rate limiting for quiz creation (max 5 active per child)
+  - [ ] Handle expired session returns (410 Gone)
+  - [ ] Implement idempotent submission
+  - [ ] Add validation for question_count (5-30) and duration_sec (300-7200)
+
+- Backend Logging & Analytics
+  - [ ] Add logging with [QUIZ] prefix for all operations
+  - [ ] Log quiz creation with child_id, subject, topic, question_count, difficulty_mix
+  - [ ] Log selection: inventory depth, unseen count, fallback triggers
+  - [ ] Log submission: time_taken, score, unanswered_count
+  - [ ] Log errors: insufficient inventory, generation failures, auth failures
+
+- Backend Testing
+  - [ ] Selection: Returns requested question_count with approx. mix 30/50/20 (±1 item)
+  - [ ] Selection: Prioritizes unseen questions; falls back cleanly when inventory low
+  - [ ] Selection: Avoids selecting same question twice in one quiz
+  - [ ] Selection: Invokes Eureka alignment path for math; uses AI/mock when thin
+  - [ ] Selection: Returns error if insufficient questions available (min 5)
+  - [ ] API: Create quiz hides correct answers/explanations pre-submit
+  - [ ] API: Create returns 409 Conflict if active quiz exists for child/subject/topic
+  - [ ] API: Submit grades accurately; returns score and incorrect-only with explanations
+  - [ ] API: Submitting with unanswered items treats them as incorrect
+  - [ ] API: Results persisted and retrievable; session status transitions correct
+  - [ ] API: Expired sessions return 410 Gone and cannot be submitted
+  - [ ] API: Authentication required for all endpoints
+  - [ ] API: child_id validation prevents cross-user access
+  - [ ] Concurrency: Cannot create multiple active quizzes for same child/subject/topic
+  - [ ] Concurrency: Cannot access quiz session belonging to different user
+  - [ ] Concurrency: Cannot submit same quiz twice (idempotency)
+
+✅ Phase 1 Validation Gates (complete before Phase 2)
+  - [ ] Migration runs successfully on local DB without errors
+  - [ ] Migration runs successfully on Supabase without errors
+  - [ ] All Phase 1 backend tests pass (pytest with ≥80% coverage)
+  - [ ] Backend linting passes (make lint)
+  - [ ] Can create quiz via API and receive question set (without answers)
+  - [ ] Can submit quiz via API and receive graded results
+  - [ ] Authentication rejects requests without valid token
+  - [ ] 409 Conflict returned when creating duplicate active quiz
+  - [ ] 410 Gone returned for expired session submission
+  - [ ] [QUIZ] logs visible for create, submit, and error operations
+  - [ ] Both memory and Supabase data modes work correctly
+  - [ ] Backend server starts without errors (make dev)
+
+Phase 2 — Frontend Foundations
+- Frontend Services & Context
+  - [ ] Create `src/ui/web/src/services/quiz.service.ts`
+  - [ ] Add create/list/get/submit methods to quiz service
+  - [ ] Add error handling for network failures, session not found, expired sessions
+  - [ ] Create `src/ui/web/src/contexts/QuizContext.tsx`
+  - [ ] Implement state: session meta, questions[], answers map, isSubmitting, timeLeft, isLoading, error
+  - [ ] Implement actions: initializeQuiz, selectAnswer, submitQuiz, reset
+  - [ ] Implement timer sync with backend every 10s
+  - [ ] Handle timer persistence across page refresh with UTC timestamps
+  - [ ] Implement auto-submit at 0:00 with current selections
+
+- Frontend Routing & Pages
+  - [ ] Add routes `/quiz/new`, `/quiz/:id`, `/quiz/:id/results` to router
+  - [ ] Create `src/ui/web/src/pages/QuizPage.tsx`
+  - [ ] Implement QuizPage: all questions visible, sticky timer, submit button
+  - [ ] Add responsive layouts for 375px, 768px, 1440px viewports
+  - [ ] Add "Jump to question" navigation for 10+ questions
+  - [ ] Ensure touch-friendly radio buttons (min 44px tap target)
+  - [ ] Create `src/ui/web/src/pages/QuizResults.tsx`
+  - [ ] Implement QuizResults: summary + incorrect table with explanations
+  - [ ] Add action buttons: "Review All Questions", "Start New Quiz", "Back to Dashboard"
+
+- Frontend UX & Error Handling
+  - [ ] Build Quiz setup modal (subject/topic/subtopic, count, duration, mix)
+  - [ ] Show duration preview based on difficulty mix (smart defaults)
+  - [ ] Check for active quiz conflict in setup modal
+  - [ ] Add welcome screen choice: Practice vs Quiz
+  - [ ] Add loading states (skeleton loaders, disabled buttons with "Grading...")
+  - [ ] Add error handling (network failure with retry, session not found redirect)
+  - [ ] Add error handling (expired session with message + redirect)
+  - [ ] Warn on submit if unanswered questions remain
+
+- Frontend Testing
+  - [ ] QuizContext: initialize → selectAnswer → submit → resets on new quiz
+  - [ ] Timer: counts down, triggers autoSubmit at 0, prevents double submit
+  - [ ] Timer: syncs with backend every 10s, handles drift
+  - [ ] Services: create/get/submit call correct endpoints and handle payload
+  - [ ] Error handling for network failures, expired sessions
+  - [ ] QuizPage: renders all questions; timer countdown; disabled after submit
+  - [ ] QuizResults: shows summary and incorrect-only with explanations
+  - [ ] Welcome choice displays Practice and Quiz; Quiz path navigates correctly
+  - [ ] Quiz setup modal: choose subject/topic, count, duration, mix; creates session
+  - [ ] Setup modal warns if active quiz exists
+  - [ ] Quiz page: all questions visible; select answers; sticky timer visible
+  - [ ] Responsive layouts work at 375px, 768px, 1440px
+  - [ ] Submit flow: warns on unanswered; submits; disables interactions post-submit
+  - [ ] Results page: shows summary and incorrect-only table with explanations
+  - [ ] Timeout path: let timer elapse; auto-submit triggers; results rendered
+  - [ ] Persistence: page reload on quiz page resumes timer accurately
+  - [ ] Persistence: page reload on results preserves state via API fetch
+  - [ ] Cannot submit answers for questions not in the quiz
+
+✅ Phase 2 Validation Gates (complete before Phase 3)
+  - [ ] Frontend dev server starts without errors (npm run dev)
+  - [ ] All Phase 2 frontend unit tests pass (Vitest with ≥80% coverage)
+  - [ ] Frontend linting passes (npm run lint, npm run typecheck)
+  - [ ] Can navigate from Dashboard → Quiz Setup → Quiz Page → Results
+  - [ ] Quiz setup modal displays subjects, topics, duration preview
+  - [ ] Timer counts down and syncs with backend every 10s
+  - [ ] Can select answers for all questions via radio buttons
+  - [ ] Submit button works and shows graded results
+  - [ ] Auto-submit triggers when timer reaches 0:00
+  - [ ] Page refresh on quiz page resumes timer without loss
+  - [ ] Error states display correctly (network failure, expired session)
+  - [ ] Loading states display correctly (skeleton loaders, disabled buttons)
+  - [ ] No console errors during happy path flow
+  - [ ] Manual E2E test: create → answer → submit → view results works
+
+Phase 3 — Behavior, Policy, and Style
+- Difficulty & Duration Logic
+  - [ ] Implement difficulty mix presets (Balanced: 30/50/20 as default)
+  - [ ] Implement smart duration formula (60s easy, 90s medium, 120s hard)
+  - [ ] Show duration preview in setup modal
+  - [ ] Allow manual override with min/max constraints (300-7200s)
+
+- Question Selection Policy
+  - [ ] Verify duplicates do not appear within the same quiz
+  - [ ] Add recent-attempt window constraints with safe fallback
+  - [ ] Ensure non-adaptive quiz (fixed set at creation)
+
+- Design & Styling
+  - [ ] Reuse theme colors by subject; match Practice component styles
+  - [ ] Follow design tokens from design system
+  - [ ] Implement micro-interactions (150-300ms transitions)
+  - [ ] Add hover states, focus rings, active states for all interactive elements
+  - [ ] Confirm accessible labels, keyboard navigation, and focus states
+  - [ ] Ensure touch-friendly tap targets (min 44px)
+  - [ ] Add submit confirmation modal if unanswered remain
+
+- Visual Testing
+  - [ ] Run Quick Visual Check: navigate to quiz setup, quiz page, results page
+  - [ ] Run Quick Visual Check: capture full-page screenshots at 1440px viewport
+  - [ ] Run Quick Visual Check: check console for errors
+  - [ ] Test all loading states (skeleton loaders, disabled buttons)
+  - [ ] Test all error states (network failure, session not found, expired)
+  - [ ] Test all empty states if applicable
+
+✅ Phase 3 Validation Gates (complete before Phase 4)
+  - [ ] Difficulty mix proportions validated (30/50/20 creates correct distribution)
+  - [ ] Duration formula validated (matches smart defaults: 60/90/120s)
+  - [ ] Duration preview updates correctly in setup modal
+  - [ ] No duplicate questions appear in same quiz
+  - [ ] Recent-attempt window prevents repetition correctly
+  - [ ] Design tokens applied consistently across all quiz pages
+  - [ ] Micro-interactions work (150-300ms transitions, hover states, focus rings)
+  - [ ] Submit confirmation modal appears when unanswered questions remain
+  - [ ] Visual check screenshots captured at 1440px (setup, quiz, results)
+  - [ ] No console errors in browser console
+  - [ ] Loading states render correctly (skeleton loaders visible)
+  - [ ] Error states render correctly (network failure shows retry button)
+  - [ ] Theme colors match existing Practice component styles
+  - [ ] Touch targets meet 44px minimum on mobile (375px viewport)
+
+Phase 4 — Testing & Quality Gates
+- Automated Testing
+  - [ ] Create tests/fixtures/eureka_*.json with representative items
+  - [ ] Ensure ≥80% coverage on new code (backend + frontend)
+  - [ ] All backend unit tests passing (selection, grading)
+  - [ ] All backend API tests passing (create, get, submit, expire)
+  - [ ] All frontend unit tests passing (QuizContext, timer, services)
+  - [ ] All frontend E2E tests passing (Playwright flows)
+
+- Performance Testing
+  - [ ] Quiz with 20 questions loads in <2s
+  - [ ] Submission processes in <1s for 20 answers
+  - [ ] Frontend doesn't freeze during answer selection
+  - [ ] Timer updates don't cause UI jank
+
+- Accessibility Testing (WCAG 2.1 AA)
+  - [ ] Screen reader announces timer updates every 60s
+  - [ ] All questions navigable via keyboard (Tab, arrow keys)
+  - [ ] Radio buttons have visible focus indicators (3px outline)
+  - [ ] Submit button accessible via Enter key
+  - [ ] Results table has proper header associations
+  - [ ] Color contrast ratios meet 4.5:1 minimum
+  - [ ] Form labels properly associated with inputs
+
+- Code Quality
+  - [ ] Lint/typecheck backend (make lint, make format)
+  - [ ] Lint/typecheck frontend (npm run typecheck, npm run lint)
+  - [ ] Format check frontend (npm run format:check)
+  - [ ] No console errors or warnings
+  - [ ] No TypeScript errors or warnings
+
+- Comprehensive Design Review
+  - [ ] Run comprehensive design review before PR
+  - [ ] Test responsiveness at 375px, 768px, 1440px
+  - [ ] Verify keyboard navigation and WCAG 2.1 AA compliance
+  - [ ] Test all interactive states (hover, focus, active, disabled)
+  - [ ] Validate loading states, error states, empty states
+  - [ ] Check micro-interactions and transitions (150-300ms)
+
+✅ Phase 4 Validation Gates (complete before Phase 5)
+  - [ ] All backend tests pass (pytest with ≥80% coverage on new code)
+  - [ ] All frontend tests pass (Vitest with ≥80% coverage on new code)
+  - [ ] All E2E tests pass (Playwright happy path and edge cases)
+  - [ ] Backend linting and formatting pass (make lint, make format)
+  - [ ] Frontend linting and formatting pass (npm run lint, npm run format:check)
+  - [ ] Frontend typechecking passes (npm run typecheck)
+  - [ ] No console errors or warnings in browser
+  - [ ] No TypeScript errors or warnings
+  - [ ] Performance test: 20-question quiz loads in <2s
+  - [ ] Performance test: Submission processes in <1s for 20 answers
+  - [ ] Performance test: Timer updates don't cause UI jank
+  - [ ] Accessibility: Screen reader announces timer updates
+  - [ ] Accessibility: Keyboard navigation works (Tab, arrow keys, Enter)
+  - [ ] Accessibility: Focus indicators visible (3px outline)
+  - [ ] Accessibility: Color contrast ratios meet 4.5:1 minimum
+  - [ ] Accessibility: Form labels properly associated
+  - [ ] Comprehensive design review completed (responsiveness, states, interactions)
+  - [ ] Eureka-style test fixtures created (tests/fixtures/eureka_*.json)
+
+Phase 5 — Documentation & Configuration
+- Documentation Updates
+  - [ ] Update README.md with quiz mode overview and API examples
+  - [ ] Update USAGE_FILE.md with quiz API/flows and comparison table
+  - [ ] Update CLAUDE.md with architecture notes for quiz mode
+  - [ ] Update context/design-principles.md with quiz-specific patterns (if needed)
+  - [ ] Update AGENTS.md if quiz selection logic is complex
+  - [ ] Add user guide: "Practice vs Quiz Mode" comparison table
+  - [ ] Consider adding Swagger/OpenAPI spec for API documentation
+
+- Configuration
+  - [ ] Update .env.example with ENABLE_QUIZ_MODE flag description
+  - [ ] Add feature flag documentation (how to enable/disable)
+  - [ ] Document default values for duration, difficulty mix, constraints
+  - [ ] Document rate limiting and session lifecycle rules
+
+✅ Phase 5 Validation Gates (complete before Phase 6)
+  - [ ] README.md updated with quiz mode section and examples
+  - [ ] USAGE_FILE.md updated with quiz API flows and comparison table
+  - [ ] CLAUDE.md updated with quiz architecture notes
+  - [ ] .env.example includes ENABLE_QUIZ_MODE with description
+  - [ ] User guide created with "Practice vs Quiz Mode" comparison
+  - [ ] All documentation reviewed for accuracy (no broken examples)
+  - [ ] API examples tested and verified working
+  - [ ] Default values documented match implementation
+  - [ ] Feature flag instructions tested (enable/disable works)
+  - [ ] Rate limiting rules documented and match code
+  - [ ] Session lifecycle rules documented and match code
+  - [ ] Code review completed (at least one other developer)
+
+Phase 6 — Integration, Monitoring & Rollout
+- Dashboard Integration
+  - [ ] Add "Start Quiz" card to Dashboard next to "Continue Practice"
+  - [ ] Add active quiz badge to Dashboard
+  - [ ] Add "Practice" vs "Quizzes" toggle in ProgressPanel
+  - [ ] Display quiz history with date, topic, score, time
+  - [ ] Show aggregate quiz stats (average score, topics mastered)
+  - [ ] Keep separate from adaptive practice metrics initially
+
+- Monitoring & Analytics
+  - [ ] Add performance tracking (P95 latency for create and submit)
+  - [ ] Add error monitoring ([QUIZ] log filtering)
+  - [ ] Set up alerts for high failure rates (>5%)
+  - [ ] Monitor OpenAI API usage for generation fallback
+  - [ ] Monitor concurrent quiz attempts per child
+  - [ ] Track completion/abandonment rates
+
+- Progressive Rollout
+  - [ ] Enable feature flag ENABLE_QUIZ_MODE=1 in .env
+  - [ ] Test with internal users first (dogfooding)
+  - [ ] Collect feedback on timing, difficulty mix, explanations
+  - [ ] Monitor error logs and performance metrics
+  - [ ] Add optional post-quiz feedback modal
+  - [ ] Track: "Was duration appropriate?" "Were questions fair?"
+  - [ ] Use feedback to tune default durations and difficulty mixes
+  - [ ] Roll out to broader user base after internal validation
+
+✅ Phase 6 Validation Gates (production readiness)
+  - [ ] "Start Quiz" card visible on Dashboard next to "Continue Practice"
+  - [ ] Active quiz badge displays correctly on Dashboard
+  - [ ] "Practice" vs "Quizzes" toggle works in ProgressPanel
+  - [ ] Quiz history displays with date, topic, score, time
+  - [ ] Aggregate quiz stats display correctly (average score, topics mastered)
+  - [ ] Performance monitoring set up (P95 latency tracking)
+  - [ ] Error monitoring set up ([QUIZ] log filtering and alerts)
+  - [ ] Alerts configured for failure rates >5%
+  - [ ] OpenAI API usage monitoring active
+  - [ ] Feature flag ENABLE_QUIZ_MODE=1 tested in both states (on/off)
+  - [ ] Internal dogfooding completed (at least 3 users, 10+ quizzes)
+  - [ ] No critical bugs reported during internal testing
+  - [ ] Error logs reviewed (no unexpected errors)
+  - [ ] Performance metrics within targets (<2s create, <1s submit)
+  - [ ] Post-quiz feedback modal functional (if implemented)
+  - [ ] Completion/abandonment rates within acceptable range
+  - [ ] Rollout plan approved by stakeholders
+  - [ ] Rollback plan documented and tested
+
+Validation Tests Summary
+- Backend unit (selection)
+  - [ ] Returns requested question_count with approx. mix 30/50/20 (±1 item)
+  - [ ] Prioritizes unseen questions; falls back cleanly when inventory low
+  - [ ] Avoids selecting same question twice in one quiz
+  - [ ] Invokes Eureka alignment path for math; uses AI/mock when thin
+  - [ ] Returns error if insufficient questions available (min 5)
+- Backend API
+  - [ ] Create quiz hides correct answers/explanations pre-submit
+  - [ ] Create returns 409 Conflict if active quiz exists for child/subject/topic
+  - [ ] Submit grades accurately; returns score and incorrect-only with explanations
+  - [ ] Submitting with unanswered items treats them as incorrect
+  - [ ] Timeout path auto-submits and grades current selections
+  - [ ] Results persisted and retrievable; session status transitions correct
+  - [ ] Expired sessions return 410 Gone and cannot be submitted
+  - [ ] Authentication required for all endpoints
+  - [ ] child_id validation prevents cross-user access
+- Frontend unit (Vitest)
+  - [ ] QuizContext: initialize → selectAnswer → submit → resets on new quiz
+  - [ ] Timer: counts down, triggers autoSubmit at 0, prevents double submit
+  - [ ] Timer syncs with backend every 10s
+  - [ ] Services: create/get/submit call correct endpoints and handle payload
+  - [ ] Error handling for network failures, expired sessions
+- Frontend e2e (Playwright)
+  - [ ] Welcome choice displays Practice and Quiz; Quiz path navigates correctly
+  - [ ] Quiz setup modal: choose subject/topic, count, duration, mix; creates session
+  - [ ] Setup modal warns if active quiz exists
+  - [ ] Quiz page: all questions visible; select answers; sticky timer visible
+  - [ ] Responsive layouts work at 375px, 768px, 1440px
+  - [ ] Submit flow: warns on unanswered; submits; disables interactions post-submit
+  - [ ] Results page: shows summary and incorrect-only table with explanations
+  - [ ] Timeout path: let timer elapse; auto-submit triggers; results rendered
+  - [ ] Persistence: page reload on quiz page resumes timer accurately
+  - [ ] Persistence: page reload on results preserves state via API fetch
+- Concurrency & Security
+  - [ ] Cannot create multiple active quizzes for same child/subject/topic
+  - [ ] Cannot access quiz session belonging to different user
+  - [ ] Cannot submit answers for questions not in the quiz
+  - [ ] Cannot submit same quiz twice (idempotency)
+- Performance
+  - [ ] Quiz with 20 questions loads in <2s
+  - [ ] Submission processes in <1s for 20 answers
+  - [ ] Frontend doesn't freeze during answer selection
+- Accessibility (WCAG 2.1 AA)
+  - [ ] Screen reader announces timer updates every 60s
+  - [ ] All questions navigable via keyboard (Tab, arrow keys)
+  - [ ] Radio buttons have visible focus indicators
+  - [ ] Submit button accessible via Enter key
+  - [ ] Results table has proper header associations
+- Fixtures (tests/fixtures)
+  - [ ] Include Eureka-style math items and explanations for stable tests
