@@ -165,3 +165,115 @@ class AdminGenerateRequest(BaseModel):
     grade: Optional[int] = None
     difficulty: Optional[str] = Field(default="medium")
     count: int = Field(default=5, ge=1, le=20)
+
+
+# Quiz Mode Models
+
+class DifficultyMix(BaseModel):
+    """Difficulty mix configuration for quiz."""
+    easy: float = Field(default=0.3, ge=0, le=1)
+    medium: float = Field(default=0.5, ge=0, le=1)
+    hard: float = Field(default=0.2, ge=0, le=1)
+
+    @field_validator("hard")
+    @classmethod
+    def _validate_sum(cls, value: float, info) -> float:
+        """Ensure difficulty proportions sum to 1.0."""
+        if hasattr(info, 'data'):
+            easy = info.data.get('easy', 0.3)
+            medium = info.data.get('medium', 0.5)
+            total = easy + medium + value
+            if not (0.99 <= total <= 1.01):  # Allow small floating point error
+                raise ValueError("Difficulty mix proportions must sum to 1.0")
+        return value
+
+
+class QuizCreateRequest(BaseModel):
+    """Request to create a new quiz session."""
+    child_id: str
+    subject: str
+    topic: str
+    subtopic: Optional[str] = None
+    question_count: int = Field(ge=5, le=30)
+    duration_sec: int = Field(ge=300, le=7200)  # 5 min to 2 hours
+    difficulty_mix: Optional[DifficultyMix] = None
+
+
+class QuizSessionQuestion(BaseModel):
+    """A question within a quiz session."""
+    id: str
+    quiz_session_id: str
+    question_id: str
+    index: int  # Order in the quiz
+    correct_choice: str
+    explanation: str
+    selected_choice: Optional[str] = None
+    is_correct: Optional[bool] = None
+
+
+class QuizSession(BaseModel):
+    """A quiz session."""
+    id: str
+    child_id: str
+    subject: str
+    topic: str
+    subtopic: Optional[str] = None
+    status: str  # active, completed, expired
+    duration_sec: int
+    difficulty_mix_config: dict
+    started_at: datetime
+    submitted_at: Optional[datetime] = None
+    score: Optional[int] = None  # Percentage 0-100
+    total_questions: int
+    created_at: datetime
+
+
+class QuizQuestionDisplay(BaseModel):
+    """Question displayed to user during quiz (no answers/explanations)."""
+    id: str
+    index: int
+    stem: str
+    options: list[str]
+    difficulty: Optional[str] = None
+    subject: str
+    topic: Optional[str] = None
+
+
+class QuizSessionResponse(BaseModel):
+    """Response when creating or fetching a quiz session."""
+    session: QuizSession
+    questions: list[QuizQuestionDisplay]
+    time_remaining_sec: Optional[int] = None
+
+
+class QuizAnswerSubmission(BaseModel):
+    """Answer submission for a single question."""
+    question_id: str
+    selected_choice: str
+
+
+class QuizSubmitRequest(BaseModel):
+    """Request to submit quiz answers."""
+    answers: list[QuizAnswerSubmission]
+
+
+class QuizIncorrectItem(BaseModel):
+    """Details for an incorrect answer."""
+    question_id: str
+    index: int
+    stem: str
+    options: list[str]
+    selected_choice: str
+    correct_choice: str
+    explanation: str
+
+
+class QuizResult(BaseModel):
+    """Results after quiz submission."""
+    session_id: str
+    score: int  # Percentage 0-100
+    correct_count: int
+    total_questions: int
+    time_taken_sec: int
+    incorrect_items: list[QuizIncorrectItem]
+    submitted_at: datetime
