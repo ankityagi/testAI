@@ -759,6 +759,206 @@ class PostgresRepository:
             conn.close()
 
 
+    # Quiz Session Methods
+
+    def create_quiz_session(
+        self, *,
+        child_id: str,
+        subject: str,
+        topic: str,
+        subtopic: str | None,
+        question_count: int,
+        duration_sec: int,
+        difficulty_mix: dict
+    ) -> dict:
+        """Create a new quiz session."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """INSERT INTO quiz_sessions
+                       (child_id, subject, topic, subtopic, total_questions, duration_sec, difficulty_mix_config, status)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, 'active')
+                       RETURNING id, child_id, subject, topic, subtopic, status, duration_sec,
+                                 difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at""",
+                    (child_id, subject, topic, subtopic, question_count, duration_sec, difficulty_mix)
+                )
+                result = dict(cur.fetchone())
+                conn.commit()
+                return result
+        finally:
+            conn.close()
+
+    def get_quiz_session(self, session_id: str) -> dict | None:
+        """Get a quiz session by ID."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT id, child_id, subject, topic, subtopic, status, duration_sec,
+                              difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at
+                       FROM quiz_sessions
+                       WHERE id = %s""",
+                    (session_id,)
+                )
+                result = cur.fetchone()
+                return dict(result) if result else None
+        finally:
+            conn.close()
+
+    def list_quiz_sessions(self, child_id: str, limit: int = 20, offset: int = 0) -> list[dict]:
+        """List quiz sessions for a child."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT id, child_id, subject, topic, subtopic, status, duration_sec,
+                              difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at
+                       FROM quiz_sessions
+                       WHERE child_id = %s
+                       ORDER BY created_at DESC
+                       LIMIT %s OFFSET %s""",
+                    (child_id, limit, offset)
+                )
+                return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def check_active_quiz(self, child_id: str, subject: str, topic: str) -> dict | None:
+        """Check if there's an active quiz for this child/subject/topic."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT id, child_id, subject, topic, subtopic, status, duration_sec,
+                              difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at
+                       FROM quiz_sessions
+                       WHERE child_id = %s AND subject = %s AND topic = %s AND status = 'active'
+                       LIMIT 1""",
+                    (child_id, subject, topic)
+                )
+                result = cur.fetchone()
+                return dict(result) if result else None
+        finally:
+            conn.close()
+
+    def create_quiz_session_questions(self, session_id: str, questions: list[dict]) -> list[dict]:
+        """Bulk insert questions for a quiz session."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Bulk insert
+                values = [
+                    (session_id, q["question_id"], q["index"], q["correct_choice"], q["explanation"])
+                    for q in questions
+                ]
+                cur.executemany(
+                    """INSERT INTO quiz_session_questions
+                       (quiz_session_id, question_id, index, correct_choice, explanation)
+                       VALUES (%s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    values
+                )
+                conn.commit()
+
+                # Fetch all created questions
+                cur.execute(
+                    """SELECT id, quiz_session_id, question_id, index, correct_choice, explanation,
+                              selected_choice, is_correct, created_at
+                       FROM quiz_session_questions
+                       WHERE quiz_session_id = %s
+                       ORDER BY index""",
+                    (session_id,)
+                )
+                return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_quiz_session_questions(self, session_id: str) -> list[dict]:
+        """Get all questions for a quiz session."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT qsq.id, qsq.quiz_session_id, qsq.question_id, qsq.index,
+                              qsq.correct_choice, qsq.explanation, qsq.selected_choice, qsq.is_correct,
+                              q.stem, q.options, q.difficulty, q.subject, q.topic
+                       FROM quiz_session_questions qsq
+                       JOIN question_bank q ON qsq.question_id = q.id
+                       WHERE qsq.quiz_session_id = %s
+                       ORDER BY qsq.index""",
+                    (session_id,)
+                )
+                return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def submit_quiz_session(self, session_id: str, answers: list[dict]) -> dict:
+        """Submit quiz answers and calculate score."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Update each question with selected answer and correctness
+                for answer in answers:
+                    cur.execute(
+                        """UPDATE quiz_session_questions
+                           SET selected_choice = %s,
+                               is_correct = (correct_choice = %s)
+                           WHERE quiz_session_id = %s AND question_id = %s""",
+                        (answer["selected_choice"], answer["selected_choice"], session_id, answer["question_id"])
+                    )
+
+                # Calculate score
+                cur.execute(
+                    """SELECT
+                         COUNT(*) as total,
+                         SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
+                       FROM quiz_session_questions
+                       WHERE quiz_session_id = %s""",
+                    (session_id,)
+                )
+                counts = dict(cur.fetchone())
+                score = round((counts["correct"] / counts["total"] * 100)) if counts["total"] else 0
+
+                # Update session with score and status
+                cur.execute(
+                    """UPDATE quiz_sessions
+                       SET score = %s,
+                           status = 'completed',
+                           submitted_at = now()
+                       WHERE id = %s
+                       RETURNING id, child_id, subject, topic, subtopic, status, duration_sec,
+                                 difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at""",
+                    (score, session_id)
+                )
+                result = dict(cur.fetchone())
+                conn.commit()
+                return result
+        finally:
+            conn.close()
+
+    def expire_quiz_session(self, session_id: str) -> dict | None:
+        """Mark a quiz session as expired."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """UPDATE quiz_sessions
+                       SET status = 'expired'
+                       WHERE id = %s AND status = 'active'
+                       RETURNING id, child_id, subject, topic, subtopic, status, duration_sec,
+                                 difficulty_mix_config, started_at, submitted_at, score, total_questions, created_at""",
+                    (session_id,)
+                )
+                result = cur.fetchone()
+                if result:
+                    conn.commit()
+                    return dict(result)
+                return None
+        finally:
+            conn.close()
+
+
 def build_postgres_repository() -> PostgresRepository:
     return PostgresRepository()
 
