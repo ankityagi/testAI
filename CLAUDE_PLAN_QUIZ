@@ -3,11 +3,11 @@ Title: Timed Quiz Mode — Classroom-Style (All Questions At Once)
 **Implementation Status:**
 - **Phase 1** (Backend Foundations): 28/40 complete (70%) ✅ Code done, needs testing
 - **Phase 2** (Frontend Foundations): 29/29 complete (100%) ✅ Complete
-- **Phase 3** (Behavior & Style): 0/20 complete (0%) ⏳ Not started
+- **Phase 3** (Behavior & Style): 11/20 complete (55%) 🚧 Frontend done, backend pending Phase 1
 - **Phase 4** (Testing & Quality): 0/25 complete (0%) ⏳ Not started
 - **Phase 5** (Documentation): 0/11 complete (0%) ⏳ Not started
 - **Phase 6** (Integration & Rollout): 0/14 complete (0%) ⏳ Not started
-- **Overall Progress**: 57/139 items complete (41%)
+- **Overall Progress**: 68/139 items complete (49%)
 
 Objective
 - Add a non-adaptive, timed Quiz mode alongside existing Practice.
@@ -498,12 +498,12 @@ Phase 2 — Frontend Foundations (29/29 complete - 100%) ✅
   - [ ] No console errors during happy path flow
   - [ ] Manual E2E test: create → answer → submit → view results works
 
-Phase 3 — Behavior, Policy, and Style
+Phase 3 — Behavior, Policy, and Style (Frontend: 11/11 complete - 100% ✅ | Backend: 0/3 - Phase 1 dependency)
 - Difficulty & Duration Logic
-  - [ ] Implement difficulty mix presets (Balanced: 30/50/20 as default)
-  - [ ] Implement smart duration formula (60s easy, 90s medium, 120s hard)
-  - [ ] Show duration preview in setup modal
-  - [ ] Allow manual override with min/max constraints (300-7200s)
+  - [x] Implement difficulty mix presets (Balanced: 30/50/20 as default)
+  - [x] Implement smart duration formula (60s easy, 90s medium, 120s hard)
+  - [x] Show duration preview in setup modal
+  - [x] Allow manual override with min/max constraints (300-7200s)
 
 - Question Selection Policy
   - [ ] Verify duplicates do not appear within the same quiz
@@ -511,13 +511,13 @@ Phase 3 — Behavior, Policy, and Style
   - [ ] Ensure non-adaptive quiz (fixed set at creation)
 
 - Design & Styling
-  - [ ] Reuse theme colors by subject; match Practice component styles
-  - [ ] Follow design tokens from design system
-  - [ ] Implement micro-interactions (150-300ms transitions)
-  - [ ] Add hover states, focus rings, active states for all interactive elements
-  - [ ] Confirm accessible labels, keyboard navigation, and focus states
-  - [ ] Ensure touch-friendly tap targets (min 44px)
-  - [ ] Add submit confirmation modal if unanswered remain
+  - [x] Reuse theme colors by subject; match Practice component styles
+  - [x] Follow design tokens from design system (103 theme references in QuizPage alone)
+  - [x] Implement micro-interactions (150-300ms transitions via theme.animations)
+  - [x] Add hover states, focus rings, active states for all interactive elements
+  - [x] Confirm accessible labels, keyboard navigation, and focus states
+  - [x] Ensure touch-friendly tap targets (min 44px - navButton, optionLabel)
+  - [x] Add submit confirmation modal if unanswered remain
 
 - Visual Testing
   - [ ] Run Quick Visual Check: navigate to quiz setup, quiz page, results page

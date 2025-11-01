@@ -80,6 +80,23 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   const totalPercent = easyPercent + mediumPercent + hardPercent;
   const isValidMix = totalPercent === 100;
 
+  // Calculate recommended duration based on difficulty mix
+  // Formula: Easy: 60s, Medium: 90s, Hard: 120s
+  const calculateRecommendedDuration = (): number => {
+    const easyCount = Math.round((questionCount * easyPercent) / 100);
+    const mediumCount = Math.round((questionCount * mediumPercent) / 100);
+    const hardCount = Math.round((questionCount * hardPercent) / 100);
+
+    const durationSeconds = (easyCount * 60) + (mediumCount * 90) + (hardCount * 120);
+    return Math.ceil(durationSeconds / 60); // Convert to minutes
+  };
+
+  const recommendedDuration = isValidMix ? calculateRecommendedDuration() : durationMinutes;
+
+  const useRecommendedDuration = () => {
+    setDurationMinutes(recommendedDuration);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -233,9 +250,25 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
 
             {/* Duration */}
             <div style={styles.formGroup}>
-              <label htmlFor="duration" style={styles.label}>
-                Duration: {durationMinutes} minutes
-              </label>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: theme.spacing[2],
+              }}>
+                <label htmlFor="duration" style={styles.label}>
+                  Duration: {durationMinutes} minutes
+                </label>
+                {isValidMix && durationMinutes !== recommendedDuration && (
+                  <button
+                    type="button"
+                    onClick={useRecommendedDuration}
+                    style={styles.recommendButton}
+                  >
+                    Use Recommended ({recommendedDuration} min)
+                  </button>
+                )}
+              </div>
               <input
                 type="range"
                 id="duration"
@@ -250,6 +283,11 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
                 <span>5 min</span>
                 <span>120 min</span>
               </div>
+              {isValidMix && (
+                <p style={styles.durationHint}>
+                  Recommended: {recommendedDuration} min (based on {Math.round((questionCount * easyPercent) / 100)} easy @ 60s, {Math.round((questionCount * mediumPercent) / 100)} medium @ 90s, {Math.round((questionCount * hardPercent) / 100)} hard @ 120s)
+                </p>
+              )}
             </div>
 
             {/* Difficulty Mix */}
@@ -499,6 +537,27 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
     fontStyle: 'italic',
+  },
+  recommendButton: {
+    fontFamily: theme.typography.fonts.body,
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.medium,
+    padding: `${theme.spacing[1]} ${theme.spacing[3]}`,
+    borderRadius: theme.borderRadius.md,
+    border: `1px solid ${theme.colors.primary[300]}`,
+    backgroundColor: theme.colors.primary[50],
+    color: theme.colors.primary[700],
+    cursor: 'pointer',
+    transition: theme.animations.transition.all,
+    whiteSpace: 'nowrap',
+  },
+  durationHint: {
+    fontFamily: theme.typography.fonts.body,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.text.secondary,
+    marginTop: theme.spacing[2],
+    fontStyle: 'italic',
+    lineHeight: theme.typography.lineHeight.relaxed,
   },
   actions: {
     display: 'flex',
