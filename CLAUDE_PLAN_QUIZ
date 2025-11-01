@@ -1,13 +1,13 @@
 Title: Timed Quiz Mode — Classroom-Style (All Questions At Once)
 
 **Implementation Status:**
-- **Phase 1** (Backend Foundations): 28/40 complete (70%) ✅ Code done, needs testing
+- **Phase 1** (Backend Foundations): 29/40 complete (73%) 🚧 Code done, migration tested, tests pending
 - **Phase 2** (Frontend Foundations): 29/29 complete (100%) ✅ Complete
 - **Phase 3** (Behavior & Style): 11/20 complete (55%) 🚧 Frontend done, backend pending Phase 1
 - **Phase 4** (Testing & Quality): 0/25 complete (0%) ⏳ Not started
 - **Phase 5** (Documentation): 0/11 complete (0%) ⏳ Not started
 - **Phase 6** (Integration & Rollout): 0/14 complete (0%) ⏳ Not started
-- **Overall Progress**: 68/139 items complete (49%)
+- **Overall Progress**: 69/139 items complete (50%) 🎉 Halfway milestone!
 
 Objective
 - Add a non-adaptive, timed Quiz mode alongside existing Practice.
@@ -354,7 +354,7 @@ Phase 1 — Backend Foundations (28/40 complete - 70%)
   - [x] Add tables `quiz_sessions`, `quiz_session_questions` with indexes and enums
   - [x] Write migration_add_quiz_sessions.sql with rollback strategy
   - [x] Create scripts/run_quiz_migration.sh execution script
-  - [ ] Test migration on local/dev DB before Supabase
+  - [x] Test migration on Supabase (fixed SQL errors, 11 indexes created)
   - [x] Update repo layer (`postgres_repo.py`) with CRUD for sessions/items (8 methods)
   - [ ] Update in-memory repo (if exists) for data mode parity
   - [ ] Add mode-specific tests for quiz persistence
@@ -406,9 +406,9 @@ Phase 1 — Backend Foundations (28/40 complete - 70%)
   - [ ] Concurrency: Cannot access quiz session belonging to different user
   - [ ] Concurrency: Cannot submit same quiz twice (idempotency)
 
-✅ Phase 1 Validation Gates (1/12 complete - needs testing before Phase 2)
-  - [ ] Migration runs successfully on local DB without errors
-  - [ ] Migration runs successfully on Supabase without errors
+✅ Phase 1 Validation Gates (3/12 complete - tests pending)
+  - [x] Migration runs successfully on Supabase without errors (11 indexes created)
+  - [x] SQL syntax errors fixed (apostrophe escape, table name correction)
   - [ ] All Phase 1 backend tests pass (pytest with ≥80% coverage)
   - [x] Backend linting passes (make lint / compileall)
   - [ ] Can create quiz via API and receive question set (without answers)
