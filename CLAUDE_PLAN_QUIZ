@@ -364,7 +364,7 @@ Phase 1 — Backend Foundations (28/40 complete - 70%)
   - [x] Implement selection service with mixed difficulty + unseen-first policy
   - [x] Wire Eureka (math) alignment and AI/mock fallback when low inventory
   - [x] Add duplicate prevention within same quiz
-  - [ ] Add recent-attempt window constraints with safe fallback (partial - uses seen hashes, not time window)
+  - [x] Add recent-attempt window constraints with safe fallback
   - [x] Create `studybuddy/backend/services/quiz_grading.py`
   - [x] Implement grading service with per-item correctness and score aggregation
   - [x] Calculate time_taken and track unanswered_count
