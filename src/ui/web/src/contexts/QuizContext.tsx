@@ -85,14 +85,6 @@ export const QuizProvider: React.FC<QuizProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Auto-submit when time expires
-  useEffect(() => {
-    if (isExpired && session && session.status === 'active' && !isSubmitting) {
-      console.log('[QuizContext] Time expired, auto-submitting quiz');
-      submitQuiz();
-    }
-  }, [isExpired, session, isSubmitting, submitQuiz]);
-
   // Start timer countdown (local, 1s intervals)
   const startLocalTimer = useCallback(() => {
     if (timerIntervalRef.current) {
@@ -299,6 +291,14 @@ export const QuizProvider: React.FC<QuizProviderProps> = ({ children }) => {
       setIsSubmitting(false);
     }
   }, [session, questions, answers, isSubmitting]);
+
+  // Auto-submit when time expires
+  useEffect(() => {
+    if (isExpired && session && session.status === 'active' && !isSubmitting) {
+      console.log('[QuizContext] Time expired, auto-submitting quiz');
+      submitQuiz();
+    }
+  }, [isExpired, session, isSubmitting, submitQuiz]);
 
   const resetQuiz = useCallback((): void => {
     // Stop timers

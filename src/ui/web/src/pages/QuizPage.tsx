@@ -10,7 +10,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { theme } from '../../../core/theme';
+import { theme } from '../../../../core/theme';
 
 export const QuizPage: React.FC = () => {
   const { id: sessionId } = useParams<{ id: string }>();
@@ -279,7 +279,7 @@ const getDifficultyColor = (difficulty: string): string => {
     case 'hard':
       return theme.colors.error[100];
     default:
-      return theme.colors.neutral[100];
+      return theme.colors.gray[100];
   }
 };
 
@@ -317,7 +317,7 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     backgroundColor: theme.colors.background.surface,
-    borderBottom: `1px solid ${theme.colors.neutral[200]}`,
+    borderBottom: `1px solid ${theme.colors.gray[200]}`,
     boxShadow: theme.shadows.md,
     zIndex: 100,
     padding: `${theme.spacing[4]} ${theme.spacing[6]}`,
@@ -361,7 +361,7 @@ const styles: Record<string, React.CSSProperties> = {
   progressBarContainer: {
     width: '200px',
     height: '8px',
-    backgroundColor: theme.colors.neutral[200],
+    backgroundColor: theme.colors.gray[200],
     borderRadius: theme.borderRadius.full,
     overflow: 'hidden',
   },
@@ -395,7 +395,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '44px',
     height: '44px',
     borderRadius: theme.borderRadius.md,
-    border: `2px solid ${theme.colors.neutral[300]}`,
+    border: `2px solid ${theme.colors.gray[300]}`,
     backgroundColor: theme.colors.background.surface,
     color: theme.colors.text.primary,
     fontFamily: theme.typography.fonts.body,
@@ -461,7 +461,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: theme.spacing[3],
     padding: theme.spacing[4],
     borderRadius: theme.borderRadius.lg,
-    border: `2px solid ${theme.colors.neutral[200]}`,
+    border: `2px solid ${theme.colors.gray[200]}`,
     backgroundColor: theme.colors.background.surface,
     cursor: 'pointer',
     transition: theme.animations.transition.all,
@@ -492,7 +492,7 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     backgroundColor: theme.colors.background.surface,
-    borderTop: `1px solid ${theme.colors.neutral[200]}`,
+    borderTop: `1px solid ${theme.colors.gray[200]}`,
     padding: theme.spacing[4],
     boxShadow: theme.shadows.lg,
   },

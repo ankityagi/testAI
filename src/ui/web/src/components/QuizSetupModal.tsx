@@ -10,7 +10,7 @@ import { ErrorMessage } from './ErrorMessage';
 import { useQuiz } from '../contexts/QuizContext';
 import { useChildren } from '../contexts/ChildrenContext';
 import { standardsService } from '../services';
-import { theme } from '../../../core/theme';
+import { theme } from '../../../../core/theme';
 import type { Standard } from '../types/api';
 
 interface QuizSetupModalProps {
@@ -415,7 +415,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing[6],
-    borderBottom: `1px solid ${theme.colors.neutral[200]}`,
+    borderBottom: `1px solid ${theme.colors.gray[200]}`,
   },
   title: {
     fontFamily: theme.typography.fonts.heading,
@@ -460,7 +460,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: theme.typography.fontSize.base,
     padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
     borderRadius: theme.borderRadius.md,
-    border: `2px solid ${theme.colors.neutral[300]}`,
+    border: `2px solid ${theme.colors.gray[300]}`,
     backgroundColor: theme.colors.background.surface,
     color: theme.colors.text.primary,
     cursor: 'pointer',
@@ -470,7 +470,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '8px',
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.neutral[200],
+    backgroundColor: theme.colors.gray[200],
     cursor: 'pointer',
     accentColor: theme.colors.primary[500],
   },
@@ -507,7 +507,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: theme.typography.fontSize.base,
     padding: `${theme.spacing[2]} ${theme.spacing[8]} ${theme.spacing[2]} ${theme.spacing[3]}`,
     borderRadius: theme.borderRadius.md,
-    border: `2px solid ${theme.colors.neutral[300]}`,
+    border: `2px solid ${theme.colors.gray[300]}`,
     backgroundColor: theme.colors.background.surface,
     color: theme.colors.text.primary,
     width: '100%',
@@ -564,6 +564,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: theme.spacing[3],
     justifyContent: 'flex-end',
     paddingTop: theme.spacing[4],
-    borderTop: `1px solid ${theme.colors.neutral[200]}`,
+    borderTop: `1px solid ${theme.colors.gray[200]}`,
   },
 };

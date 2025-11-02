@@ -10,7 +10,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { theme } from '../../../core/theme';
+import { theme } from '../../../../core/theme';
 
 export const QuizResults: React.FC = () => {
   const { id: sessionId } = useParams<{ id: string }>();
@@ -275,7 +275,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   header: {
     backgroundColor: theme.colors.background.surface,
-    borderBottom: `1px solid ${theme.colors.neutral[200]}`,
+    borderBottom: `1px solid ${theme.colors.gray[200]}`,
     padding: `${theme.spacing[8]} ${theme.spacing[6]}`,
     textAlign: 'center',
   },
@@ -315,7 +315,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '120px',
     height: '120px',
     borderRadius: '50%',
-    backgroundColor: theme.colors.neutral[100],
+    backgroundColor: theme.colors.gray[100],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
