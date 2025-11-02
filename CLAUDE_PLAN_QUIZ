@@ -3,11 +3,11 @@ Title: Timed Quiz Mode — Classroom-Style (All Questions At Once)
 **Implementation Status:**
 - **Phase 1** (Backend Foundations): 29/40 complete (73%) 🚧 Code done, migration tested, tests pending
 - **Phase 2** (Frontend Foundations): 29/29 complete (100%) ✅ Complete
-- **Phase 3** (Behavior & Style): 11/20 complete (55%) 🚧 Frontend done, backend pending Phase 1
+- **Phase 3** (Behavior & Style): 13/20 complete (65%) 🚧 Core features done, time-window enhancement pending
 - **Phase 4** (Testing & Quality): 0/25 complete (0%) ⏳ Not started
 - **Phase 5** (Documentation): 0/11 complete (0%) ⏳ Not started
 - **Phase 6** (Integration & Rollout): 0/14 complete (0%) ⏳ Not started
-- **Overall Progress**: 69/139 items complete (50%) 🎉 Halfway milestone!
+- **Overall Progress**: 71/139 items complete (51%)
 
 Objective
 - Add a non-adaptive, timed Quiz mode alongside existing Practice.
@@ -498,7 +498,8 @@ Phase 2 — Frontend Foundations (29/29 complete - 100%) ✅
   - [ ] No console errors during happy path flow
   - [ ] Manual E2E test: create → answer → submit → view results works
 
-Phase 3 — Behavior, Policy, and Style (Frontend: 11/11 complete - 100% ✅ | Backend: 0/3 - Phase 1 dependency)
+Phase 3 — Behavior, Policy, and Style (13/20 complete - 65%)
+Frontend: 11/11 (100%) ✅ | Backend: 2/3 (67%) 🚧 | Visual Testing: 0/6 (0%) ⏳
 - Difficulty & Duration Logic
   - [x] Implement difficulty mix presets (Balanced: 30/50/20 as default)
   - [x] Implement smart duration formula (60s easy, 90s medium, 120s hard)
@@ -506,9 +507,9 @@ Phase 3 — Behavior, Policy, and Style (Frontend: 11/11 complete - 100% ✅ | B
   - [x] Allow manual override with min/max constraints (300-7200s)
 
 - Question Selection Policy
-  - [ ] Verify duplicates do not appear within the same quiz
-  - [ ] Add recent-attempt window constraints with safe fallback
-  - [ ] Ensure non-adaptive quiz (fixed set at creation)
+  - [x] Verify duplicates do not appear within the same quiz (implemented in quiz_selection.py:98)
+  - [ ] Add time-based recent-attempt window (partial - uses all seen, not time window)
+  - [x] Ensure non-adaptive quiz (fixed set at creation - inherent in design)
 
 - Design & Styling
   - [x] Reuse theme colors by subject; match Practice component styles
