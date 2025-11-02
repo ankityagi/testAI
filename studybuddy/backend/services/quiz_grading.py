@@ -89,9 +89,13 @@ def grade_quiz(
     score = round((correct_count / total_questions * 100)) if total_questions else 0
 
     # Calculate time taken
-    now = datetime.utcnow()
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
     if isinstance(started_at, str):
         started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+    elif started_at.tzinfo is None:
+        # Make naive datetime timezone-aware (assume UTC)
+        started_at = started_at.replace(tzinfo=timezone.utc)
     time_taken_sec = int((now - started_at).total_seconds())
 
     logger.info(
