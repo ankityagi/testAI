@@ -6,3 +6,5 @@
 export { Auth } from './Auth';
 export { Dashboard } from './Dashboard';
 export { ThemeDemo } from './ThemeDemo';
+export { QuizPage } from './QuizPage';
+export { QuizResults } from './QuizResults';

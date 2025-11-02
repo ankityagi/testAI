@@ -22,3 +22,5 @@ export { Toast } from './Toast';
 export type { ToastProps, ToastVariant } from './Toast';
 
 export { ProtectedRoute } from './ProtectedRoute';
+
+export { QuizSetupModal } from './QuizSetupModal';

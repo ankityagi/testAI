@@ -6,16 +6,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { theme } from '../../../../core/theme';
-import { useAuth, useChildren } from '../contexts';
-import { Button, Card } from '../components';
+import { useAuth, useChildren, useQuiz } from '../contexts';
+import { Button, Card, QuizSetupModal } from '../components';
 import { ChildrenPanel, PracticePanel, ProgressPanel } from '../components/panels';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { parent, logout } = useAuth();
   const { children, selectedChild, fetchChildren } = useChildren();
+  const { session } = useQuiz();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showQuizSetup, setShowQuizSetup] = useState(false);
 
   // Fetch children on mount
   useEffect(() => {
@@ -27,9 +29,20 @@ export const Dashboard: React.FC = () => {
     setIsAnimating(true);
   }, []);
 
+  // Navigate to quiz when session is created
+  useEffect(() => {
+    if (session && session.status === 'active') {
+      navigate(`/quiz/${session.id}`);
+    }
+  }, [session, navigate]);
+
   const handleLogout = (): void => {
     logout();
     navigate('/auth');
+  };
+
+  const handleQuizSetupClose = (): void => {
+    setShowQuizSetup(false);
   };
 
   const containerStyles: React.CSSProperties = {
@@ -220,24 +233,64 @@ export const Dashboard: React.FC = () => {
             </div>
           </Card>
         ) : (
-          <div style={gridStyles}>
-            <Card header="Children" headerGradient>
-              <ChildrenPanel />
-            </Card>
-
+          <>
+            {/* Quiz Mode Section */}
             {selectedChild && (
-              <>
-                <Card header="Practice" headerGradient>
-                  <PracticePanel />
+              <div style={{ marginBottom: theme.spacing[6] }}>
+                <Card>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: theme.spacing[4],
+                  }}>
+                    <div>
+                      <h3 style={{
+                        ...theme.typography.styles.h3,
+                        marginBottom: theme.spacing[2],
+                      }}>
+                        Quiz Mode
+                      </h3>
+                      <p style={{
+                        color: theme.colors.text.secondary,
+                        fontSize: theme.typography.fontSize.base,
+                      }}>
+                        Test your knowledge with timed quizzes on specific topics
+                      </p>
+                    </div>
+                    <Button
+                      size="lg"
+                      onClick={() => setShowQuizSetup(true)}
+                    >
+                      Start Quiz
+                    </Button>
+                  </div>
                 </Card>
-
-                <Card header="Progress" headerGradient>
-                  <ProgressPanel />
-                </Card>
-              </>
+              </div>
             )}
-          </div>
+
+            <div style={gridStyles}>
+              <Card header="Children" headerGradient>
+                <ChildrenPanel />
+              </Card>
+
+              {selectedChild && (
+                <>
+                  <Card header="Practice" headerGradient>
+                    <PracticePanel />
+                  </Card>
+
+                  <Card header="Progress" headerGradient>
+                    <ProgressPanel />
+                  </Card>
+                </>
+              )}
+            </div>
+          </>
         )}
+
+        {/* Quiz Setup Modal */}
+        <QuizSetupModal isOpen={showQuizSetup} onClose={handleQuizSetupClose} />
       </main>
     </div>
   );

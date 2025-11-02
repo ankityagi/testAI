@@ -6,3 +6,4 @@
 export { AuthProvider, useAuth } from './AuthContext';
 export { ChildrenProvider, useChildren } from './ChildrenContext';
 export { PracticeProvider, usePractice } from './PracticeContext';
+export { QuizProvider, useQuiz } from './QuizContext';

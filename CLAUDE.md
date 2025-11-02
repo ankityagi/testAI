@@ -136,6 +136,7 @@ Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery
 - always update checkpoint file, and readme  when making PR
 - when working on a checklist remember to update the list when any item is complete
 - when working on a checklist remember to update the list when any item is complete
+- remember to update the checklist when working from a plan document
 
 
 ## Visual Development & Testing

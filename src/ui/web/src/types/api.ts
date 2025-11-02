@@ -144,3 +144,82 @@ export interface SessionSummary {
   avg_time_per_question_ms: number;
   subjects_practiced: string[];
 }
+
+// Quiz Mode Types
+
+export interface DifficultyMix {
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export interface QuizCreateRequest {
+  child_id: string;
+  subject: string;
+  topic: string;
+  subtopic?: string | null;
+  question_count: number;
+  duration_sec: number;
+  difficulty_mix?: DifficultyMix | null;
+}
+
+export interface QuizSession {
+  id: string;
+  child_id: string;
+  subject: string;
+  topic: string;
+  subtopic?: string | null;
+  status: 'active' | 'completed' | 'expired';
+  duration_sec: number;
+  difficulty_mix_config: DifficultyMix;
+  started_at: string;
+  submitted_at?: string | null;
+  score?: number | null; // Percentage 0-100
+  total_questions: number;
+  created_at: string;
+}
+
+export interface QuizQuestionDisplay {
+  id: string;
+  index: number;
+  stem: string;
+  options: string[];
+  difficulty?: string | null;
+  subject: string;
+  topic?: string | null;
+}
+
+export interface QuizSessionResponse {
+  session: QuizSession;
+  questions: QuizQuestionDisplay[];
+  time_remaining_sec?: number | null;
+}
+
+export interface QuizAnswerSubmission {
+  question_id: string;
+  selected_choice: string;
+}
+
+export interface QuizSubmitRequest {
+  answers: QuizAnswerSubmission[];
+}
+
+export interface QuizIncorrectItem {
+  question_id: string;
+  index: number;
+  stem: string;
+  options: string[];
+  selected_choice: string;
+  correct_choice: string;
+  explanation: string;
+}
+
+export interface QuizResult {
+  session_id: string;
+  score: number; // Percentage 0-100
+  correct_count: number;
+  total_questions: number;
+  time_taken_sec: number;
+  incorrect_items: QuizIncorrectItem[];
+  submitted_at: string;
+}

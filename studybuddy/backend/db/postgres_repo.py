@@ -236,6 +236,27 @@ class PostgresRepository:
         finally:
             conn.close()
 
+    def list_recent_question_hashes(self, child_id: str, limit: int = 30) -> list[str]:
+        """Get question hashes from recent attempts (for repeat reduction window)."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Get hashes from most recent N attempts
+                cur.execute(
+                    """
+                    SELECT DISTINCT qb.hash
+                    FROM attempts a
+                    JOIN question_bank qb ON a.question_id = qb.id
+                    WHERE a.child_id = %s
+                    ORDER BY a.created_at DESC
+                    LIMIT %s
+                    """,
+                    (child_id, limit)
+                )
+                return [row["hash"] for row in cur.fetchall()]
+        finally:
+            conn.close()
+
     def list_questions(
         self,
         *,

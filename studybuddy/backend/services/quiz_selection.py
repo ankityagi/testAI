@@ -90,9 +90,13 @@ def select_quiz_questions(
     logger.info(f"[QUIZ] Target counts: easy={target_counts['easy']}, "
                 f"medium={target_counts['medium']}, hard={target_counts['hard']}")
 
-    # Get seen question hashes to prioritize unseen
+    # Get recent question hashes (last 30 attempts) to avoid immediate repeats
+    recent_hashes = set(repo.list_recent_question_hashes(child_id, limit=30))
+    logger.info(f"[QUIZ] Child has seen {len(recent_hashes)} questions recently (last 30 attempts)")
+
+    # Get all seen question hashes for secondary filtering
     seen_hashes = set(repo.list_seen_question_hashes(child_id))
-    logger.info(f"[QUIZ] Child has seen {len(seen_hashes)} questions previously")
+    logger.info(f"[QUIZ] Child has seen {len(seen_hashes)} questions total")
 
     selected_questions = []
     question_hashes = set()  # Track hashes to prevent duplicates in this quiz
@@ -123,14 +127,20 @@ def select_quiz_questions(
             for q in all_questions
         ]
 
-        # Separate unseen vs seen
-        unseen = [q for q in all_questions if q["hash"] not in seen_hashes and q["hash"] not in question_hashes]
+        # Three-tier selection: not_recent > unseen_but_recent > seen
+        # Tier 1: Not in recent 30 attempts (highest priority)
+        not_recent = [q for q in all_questions if q["hash"] not in recent_hashes and q["hash"] not in question_hashes]
+
+        # Tier 2: Never seen before but in recent attempts (medium priority)
+        unseen_recent = [q for q in all_questions if q["hash"] not in seen_hashes and q["hash"] in recent_hashes and q["hash"] not in question_hashes]
+
+        # Tier 3: Seen before (lowest priority)
         seen = [q for q in all_questions if q["hash"] in seen_hashes and q["hash"] not in question_hashes]
 
-        logger.info(f"[QUIZ] {difficulty}: {len(unseen)} unseen, {len(seen)} seen (available)")
+        logger.info(f"[QUIZ] {difficulty}: {len(not_recent)} not recent, {len(unseen_recent)} unseen recent, {len(seen)} seen (available)")
 
-        # Prioritize unseen, fallback to seen
-        available = unseen + seen
+        # Combine in priority order
+        available = not_recent + unseen_recent + seen
 
         # Shuffle to randomize order
         random.shuffle(available)

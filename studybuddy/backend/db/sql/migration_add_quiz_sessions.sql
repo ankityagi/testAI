@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS quiz_sessions (
 CREATE TABLE IF NOT EXISTS quiz_session_questions (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   quiz_session_id uuid NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
-  question_id uuid NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  question_id uuid NOT NULL REFERENCES question_bank(id) ON DELETE CASCADE,
   index integer NOT NULL CHECK (index >= 0),
   correct_choice text NOT NULL,
   explanation text NOT NULL,
@@ -113,7 +113,7 @@ COMMENT ON COLUMN quiz_session_questions.question_id IS 'Reference to the questi
 COMMENT ON COLUMN quiz_session_questions.index IS 'Order of question in the quiz (0-based)';
 COMMENT ON COLUMN quiz_session_questions.correct_choice IS 'The correct answer choice';
 COMMENT ON COLUMN quiz_session_questions.explanation IS 'Explanation of the correct answer';
-COMMENT ON COLUMN quiz_session_questions.selected_choice IS 'User's selected answer (NULL if unanswered)';
+COMMENT ON COLUMN quiz_session_questions.selected_choice IS 'User''s selected answer (NULL if unanswered)';
 COMMENT ON COLUMN quiz_session_questions.is_correct IS 'Whether the user answered correctly (NULL before submission)';
 COMMENT ON COLUMN quiz_session_questions.created_at IS 'Record creation timestamp';
 
