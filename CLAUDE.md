@@ -33,9 +33,11 @@ After running `npm run build`, access the React app at `http://localhost:8000` (
 
 **Backend:**
 ```bash
-make test              # Run pytest tests
-make lint              # Compile check with compileall
-make format            # Format code with ruff
+make test                                          # Run all pytest tests
+pytest studybuddy/tests/backend/test_health.py    # Run specific test file
+pytest studybuddy/tests/backend/test_health.py::test_healthz  # Run single test
+make lint                                          # Compile check with compileall
+make format                                        # Format code with ruff
 ```
 
 **Frontend:**
@@ -43,8 +45,11 @@ make format            # Format code with ruff
 cd src/ui/web
 npm run typecheck      # TypeScript type checking
 npm run lint           # ESLint checking
+npm run format         # Format code with Prettier
 npm run format:check   # Check code formatting
 ```
+
+**Note:** Backend tests require dependencies to be installed (`make install-dev`). Some tests may fail if OpenAI or other external services are not configured.
 
 ### Environment Configuration
 Copy `.env.example` to `.env` and configure:
@@ -53,7 +58,34 @@ Copy `.env.example` to `.env` and configure:
 - `STUDYBUDDY_DATA_MODE=memory` for local dev, `supabase` for production
 - `STUDYBUDDY_MOCK_AI=1` for offline AI generation testing
 
+### Database Operations
+
+**Migration Scripts** (for Supabase mode):
+```bash
+./scripts/run_migration.sh                 # Apply subtopics migration
+./scripts/run_quiz_migration.sh            # Apply quiz sessions migration
+./scripts/run_sessions_migration.sh        # Apply practice sessions migration
+./scripts/run_normalize_migration.sh       # Apply case normalization migration
+```
+
+**Seeding Scripts:**
+```bash
+./scripts/run_seed_subtopics.sh           # Seed 1,275+ subtopics
+./scripts/run_seed_sample_questions.sh    # Seed sample questions
+python scripts/check_question_inventory.py # Check question counts by subject/topic
+python scripts/reset_question_bank.py     # Reset question bank (dev only)
+```
+
 ## Architecture Overview
+
+### Important Documentation Files
+- **PLAN_FILE.md**: Original 4-phase development plan
+- **CLAUDE_PLAN3**: React frontend implementation plan (complete)
+- **CLAUDE_PLAN4**: Advanced adaptive features plan (in progress)
+- **CLAUDE_PLAN_QUIZ**: Quiz mode implementation plan (60% complete)
+- **CLAUDE_CHECKPOINT.md**: Development progress checkpoints
+- **USAGE_FILE.md**: Comprehensive usage guide for end users
+- **README.md**: Project overview and setup instructions
 
 ### Project Structure
 
@@ -92,6 +124,8 @@ Copy `.env.example` to `.env` and configure:
 
 **Subtopic System**: Intelligent subtopic selection prioritizes topics with more unseen questions, maintaining sequence order for structured learning progression.
 
+**Session Tracking (FEAT-101)**: Automatic practice session management tracks start/end times, questions answered, and performance metrics for analytics and insights.
+
 ### Development Patterns
 
 **Backend:**
@@ -109,6 +143,12 @@ Copy `.env.example` to `.env` and configure:
 - TypeScript strict mode with comprehensive type definitions
 - Component-level state with useState/useEffect hooks
 - Inline styles with theme constants for consistent design
+- Vite path aliases configured in `vite.config.ts`:
+  - `@/` → `src/`
+  - `@/components` → `src/components/`
+  - `@/pages` → `src/pages/`
+  - `@/services` → `src/services/`
+  - `@/core` → `../../core/`
 
 ### Phase-Based Development
 The codebase follows a 4-phase development plan (see PLAN_FILE.md):
@@ -117,9 +157,24 @@ The codebase follows a 4-phase development plan (see PLAN_FILE.md):
 - Phase 3: AI generation and adaptive delivery ✅
 - **React Frontend (CLAUDE_PLAN3)**: Full UI implementation ✅
 - Phase 4: Advanced adaptive features (CLAUDE_PLAN4) 🚧
+- **Quiz Mode (CLAUDE_PLAN_QUIZ)**: Timed, classroom-style quiz mode - 60% complete (83/139 items)
+  - Phase 1 (Backend): 73% complete - models, routes, services implemented
+  - Phase 2 (Frontend): 100% complete - quiz UI and flows
+  - Phase 3 (Behavior & Style): 100% complete - timer, grading, results
+  - Phase 4 (Testing): 20% complete - in progress
+  - Phase 5-6 (Docs & Rollout): Not started
 
 ### API Structure
-Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery), `/attempts` (logging), `/progress/{child_id}` (analytics), and `/admin/generate` (batch creation).
+Core endpoints include:
+- `/auth/*`: Sign up, login, token management
+- `/children`: CRUD operations for child profiles
+- `/questions/fetch`: Adaptive question delivery with difficulty adjustment
+- `/attempts`: Log question attempts and track correctness
+- `/progress/{child_id}`: Analytics with streak/accuracy aggregates
+- `/sessions/*`: Practice session tracking (FEAT-101)
+- `/quiz/*`: Quiz session management, start, submit, results (CLAUDE_PLAN_QUIZ)
+- `/standards`: Common Core and Eureka Math standards reference
+- `/admin/generate`: Pre-generate question batches (admin only)
 
 ### React Integration
 - FastAPI serves React production build from `src/ui/web/dist/` at root path `/`
@@ -128,15 +183,13 @@ Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery
 - Production: Single-server deployment with React and API on port 8000
 
 # Workflow
-- Be sure to typecheck when you’re done making a series of code changes
-- Prefer running single tests, and not the whole test suite, for performance
-- Use claude_changelog file to document all changes added to the code
-- along with each PR update the README file, and USAGE_FILE
-- Always use gh cli when working with github and make sure to track all new files
-- always update checkpoint file, and readme  when making PR
-- when working on a checklist remember to update the list when any item is complete
-- when working on a checklist remember to update the list when any item is complete
-- remember to update the checklist when working from a plan document
+- Be sure to typecheck when you're done making a series of code changes
+- Prefer running single tests (see Testing and Code Quality section), not the whole test suite, for performance
+- Along with each PR update the README.md and USAGE_FILE.md
+- Always use gh cli when working with GitHub and make sure to track all new files
+- Always update CLAUDE_CHECKPOINT.md and README.md when making PR
+- When working on a checklist remember to update the list when any item is complete
+- Remember to update the checklist when working from a plan document (CLAUDE_PLAN_QUIZ, CLAUDE_PLAN4, etc.)
 
 
 ## Visual Development & Testing
@@ -146,7 +199,7 @@ Core endpoints include `/children` (CRUD), `/questions/fetch` (adaptive delivery
 The project follows S-Tier SaaS design standards inspired by Stripe, Airbnb, and Linear. All UI development must adhere to:
 
 - **Design Principles**: `/context/design-principles.md` - Comprehensive checklist for world-class UI
-- **Component Library**: NextUI with custom Tailwind configuration
+- **Component Library**: Custom React components with inline styles and theme constants
 
 ### Quick Visual Check
 
@@ -255,4 +308,10 @@ When implementing UI features, verify:
 
 - Design review agent configuration: `/.claude/agents/design-review-agent.md`
 - Design principles checklist: `/context/design-principles.md`
-- Custom slash commands: `/context/design-review-slash-command.md`
+- Custom slash commands available in `/.claude/commands/`:
+  - `/design-review`: Conduct comprehensive design review of UI changes
+  - `/ui-design-variations`: Generate premium UI design variations
+  - `/test-react-component`: Test React component with Playwright
+- Custom agents available in `/.claude/agents/`:
+  - `design-review-agent.md`: Automated design and accessibility review
+  - `premium-ui-designer.md`: Premium UI design and enhancement
