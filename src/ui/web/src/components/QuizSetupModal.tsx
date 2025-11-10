@@ -79,13 +79,14 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     loadStandards();
   }, [subject, selectedChild]);
 
-  // Get unique topics from standards (with defensive check)
-  const topics = Array.from(new Set((standards || []).map((s) => s.domain).filter(Boolean))) as string[];
+  // Get unique topics from standards (with robust type check)
+  const safeStandards = Array.isArray(standards) ? standards : [];
+  const topics = Array.from(new Set(safeStandards.map((s) => s.domain).filter(Boolean))) as string[];
 
-  // Get subtopics for selected topic (with defensive check)
+  // Get subtopics for selected topic (with robust type check)
   const subtopics = Array.from(
     new Set(
-      (standards || [])
+      safeStandards
         .filter((s) => s.domain === topic)
         .map((s) => s.sub_domain)
         .filter(Boolean)
