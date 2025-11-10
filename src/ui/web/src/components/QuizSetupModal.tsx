@@ -410,7 +410,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
         <div style={styles.loadingOverlay}>
           <div style={styles.loadingContent}>
             <LoadingSpinner size="lg" />
-            <p style={styles.loadingText}>Creating your quiz...</p>
+            <p style={styles.overlayLoadingText}>Creating your quiz...</p>
           </div>
         </div>
       )}
@@ -617,7 +617,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: theme.spacing[4],
   },
-  loadingText: {
+  overlayLoadingText: {
     fontFamily: theme.typography.fonts.body,
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.medium,
