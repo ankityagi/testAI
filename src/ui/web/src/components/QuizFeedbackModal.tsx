@@ -3,7 +3,7 @@
  * Collects user feedback after quiz completion for progressive rollout monitoring
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { theme } from '../../../../core/theme';
 import { Button } from './Button';
 
@@ -34,6 +34,20 @@ export const QuizFeedbackModal: React.FC<QuizFeedbackModalProps> = ({
   const [comments, setComments] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
@@ -62,12 +76,18 @@ export const QuizFeedbackModal: React.FC<QuizFeedbackModalProps> = ({
   return (
     <>
       {/* Backdrop */}
-      <div style={styles.backdrop} onClick={handleSkip} />
+      <div
+        style={styles.backdrop}
+        onClick={handleSkip}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-modal-title"
+      />
 
       {/* Modal */}
       <div style={styles.modal}>
         <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>How was your quiz?</h2>
+          <h2 id="feedback-modal-title" style={styles.modalTitle}>How was your quiz?</h2>
           <p style={styles.modalSubtitle}>
             Help us improve by sharing your feedback
           </p>
@@ -270,9 +290,14 @@ const styles: Record<string, React.CSSProperties> = {
   starButton: {
     background: 'none',
     border: 'none',
-    padding: 0,
+    padding: theme.spacing[2],
     cursor: 'pointer',
     transition: 'transform 0.2s ease',
+    minWidth: '44px',
+    minHeight: '44px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   starIcon: {
     fontSize: '36px',

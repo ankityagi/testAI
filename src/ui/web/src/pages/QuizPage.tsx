@@ -141,7 +141,14 @@ export const QuizPage: React.FC = () => {
             <div style={{...styles.timeText, color: getTimerColor()}}>
               {timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}
             </div>
-            <div style={styles.progressBarContainer}>
+            <div
+              style={styles.progressBarContainer}
+              role="progressbar"
+              aria-label="Time remaining"
+              aria-valuenow={percentTimeRemaining}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div
                 style={{
                   ...styles.progressBarFill,
