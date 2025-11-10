@@ -8,10 +8,17 @@ import type { Standard } from '../types/api';
 
 export const standardsService = {
   /**
-   * Get all available standards
+   * Get all available standards, optionally filtered by subject and grade
    */
-  async list(): Promise<Standard[]> {
-    return apiClient.get<Standard[]>('/standards');
+  async list(subject?: string, grade?: number): Promise<Standard[]> {
+    const params = new URLSearchParams();
+    if (subject) params.append('subject', subject);
+    if (grade !== undefined) params.append('grade', grade.toString());
+
+    const queryString = params.toString();
+    const url = queryString ? `/standards?${queryString}` : '/standards';
+
+    return apiClient.get<Standard[]>(url);
   },
 
   /**
