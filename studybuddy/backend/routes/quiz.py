@@ -10,6 +10,7 @@ from ..models import (
     DifficultyMix,
     Parent,
     QuizCreateRequest,
+    QuizFeedback,
     QuizIncorrectItem,
     QuizQuestionDisplay,
     QuizResult,
@@ -24,7 +25,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/sessions", response_model=QuizSessionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/sessions/",
+    response_model=QuizSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
 def create_quiz_session(
     payload: QuizCreateRequest,
     parent: Parent = Depends(deps.get_current_parent),
@@ -136,7 +142,11 @@ def create_quiz_session(
     )
 
 
-@router.get("/sessions", response_model=list[QuizSession])
+@router.get(
+    "/sessions/",
+    response_model=list[QuizSession],
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
 def list_quiz_sessions(
     child_id: str,
     limit: int = 20,
@@ -153,7 +163,11 @@ def list_quiz_sessions(
     return [QuizSession(**s) for s in sessions]
 
 
-@router.get("/sessions/{session_id}", response_model=QuizSessionResponse)
+@router.get(
+    "/sessions/{session_id}/",
+    response_model=QuizSessionResponse,
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
 def get_quiz_session(
     session_id: str,
     parent: Parent = Depends(deps.get_current_parent),
@@ -232,7 +246,11 @@ def get_quiz_session(
     )
 
 
-@router.post("/sessions/{session_id}/submit", response_model=QuizResult)
+@router.post(
+    "/sessions/{session_id}/submit/",
+    response_model=QuizResult,
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
 def submit_quiz(
     session_id: str,
     payload: QuizSubmitRequest,
@@ -298,7 +316,11 @@ def submit_quiz(
     )
 
 
-@router.post("/sessions/{session_id}/expire", response_model=QuizSession)
+@router.post(
+    "/sessions/{session_id}/expire/",
+    response_model=QuizSession,
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
 def expire_quiz(
     session_id: str,
     parent: Parent = Depends(deps.get_current_parent),
@@ -320,3 +342,45 @@ def expire_quiz(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session cannot be expired")
 
     return QuizSession(**expired_session)
+
+
+@router.post(
+    "/sessions/{session_id}/feedback/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(deps.check_quiz_mode_enabled)]
+)
+def submit_quiz_feedback(
+    session_id: str,
+    feedback: QuizFeedback,
+    parent: Parent = Depends(deps.get_current_parent),
+    repo: Repository = Depends(deps.get_repository),
+) -> dict:
+    """
+    Submit user feedback for quiz experience.
+
+    Used for progressive rollout monitoring and tuning defaults.
+    Feedback is logged for analysis but not stored in database yet.
+    """
+    logger.info(f"[QUIZ_FEEDBACK] Session {session_id} feedback received")
+
+    # Validate session exists and belongs to parent
+    session = repo.get_quiz_session(session_id)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz session not found")
+
+    if not repo.child_belongs_to_parent(session["child_id"], parent.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    # Log feedback for analysis (structured logging for easy parsing)
+    logger.info(
+        f"[QUIZ_FEEDBACK] session_id={session_id} "
+        f"duration={feedback.duration_appropriate} "
+        f"fairness={feedback.questions_fair} "
+        f"rating={feedback.overall_rating} "
+        f"has_comments={feedback.comments is not None}"
+    )
+
+    if feedback.comments:
+        logger.info(f"[QUIZ_FEEDBACK] session_id={session_id} comments={feedback.comments}")
+
+    return {"message": "Feedback received", "session_id": session_id}
