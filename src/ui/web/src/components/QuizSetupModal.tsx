@@ -63,13 +63,14 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
       setStandardsError(null);
       try {
         const data = await standardsService.list(subject, selectedChild.grade || undefined);
-        setStandards(data);
+        setStandards(data || []); // Ensure it's always an array
         // Reset topic when standards change
         setTopic('');
         setSubtopic('');
       } catch (err) {
         console.error('[QuizSetupModal] Failed to load standards:', err);
         setStandardsError('Failed to load topics');
+        setStandards([]); // Reset to empty array on error
       } finally {
         setIsLoadingStandards(false);
       }
@@ -78,13 +79,13 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     loadStandards();
   }, [subject, selectedChild]);
 
-  // Get unique topics from standards
-  const topics = Array.from(new Set(standards.map((s) => s.domain).filter(Boolean))) as string[];
+  // Get unique topics from standards (with defensive check)
+  const topics = Array.from(new Set((standards || []).map((s) => s.domain).filter(Boolean))) as string[];
 
-  // Get subtopics for selected topic
+  // Get subtopics for selected topic (with defensive check)
   const subtopics = Array.from(
     new Set(
-      standards
+      (standards || [])
         .filter((s) => s.domain === topic)
         .map((s) => s.sub_domain)
         .filter(Boolean)
