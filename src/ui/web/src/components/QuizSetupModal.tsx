@@ -39,6 +39,20 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
 
   const subjects = ['Mathematics', 'English Language Arts', 'Science', 'Social Studies'];
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   // Load standards when subject changes
   useEffect(() => {
     if (!selectedChild || !subject) return;
@@ -143,11 +157,17 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   if (!isOpen) return null;
 
   return (
-    <div style={styles.overlay} onClick={handleClose}>
+    <div
+      style={styles.overlay}
+      onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quiz-setup-title"
+    >
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <Card style={styles.card}>
           <div style={styles.header}>
-            <h2 style={styles.title}>Create New Quiz</h2>
+            <h2 id="quiz-setup-title" style={styles.title}>Create New Quiz</h2>
             <button onClick={handleClose} style={styles.closeButton} aria-label="Close">
               ✕
             </button>
@@ -483,7 +503,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   difficultyGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
     gap: theme.spacing[3],
   },
   difficultyItem: {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -277,3 +277,11 @@ class QuizResult(BaseModel):
     time_taken_sec: int
     incorrect_items: list[QuizIncorrectItem]
     submitted_at: datetime
+
+
+class QuizFeedback(BaseModel):
+    """User feedback for quiz experience."""
+    duration_appropriate: Literal['too_short', 'just_right', 'too_long']
+    questions_fair: Literal['too_easy', 'appropriate', 'too_hard']
+    overall_rating: Literal[1, 2, 3, 4, 5]
+    comments: Optional[str] = None
