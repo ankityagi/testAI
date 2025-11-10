@@ -62,6 +62,35 @@ class AttemptRecord:
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
+@dataclass
+class QuizSessionRecord:
+    id: str
+    child_id: str
+    subject: str
+    topic: str
+    subtopic: Optional[str]
+    status: str  # 'active', 'completed', 'expired'
+    duration_sec: int
+    difficulty_mix_config: dict[str, Any]
+    started_at: datetime
+    submitted_at: Optional[datetime] = None
+    score: Optional[int] = None
+    total_questions: int = 0
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class QuizSessionQuestionRecord:
+    id: str
+    quiz_session_id: str
+    question_id: str
+    index: int
+    correct_choice: str
+    explanation: str
+    selected_choice: Optional[str] = None
+    is_correct: Optional[bool] = None
+
+
 class MemoryRepository:
     """Simple in-memory implementation to emulate Supabase interactions."""
 
@@ -74,6 +103,8 @@ class MemoryRepository:
         self.tokens: dict[str, str] = {}  # token -> parent_id
         self.standards: list[dict[str, Any]] = []
         self.seen_question_hashes: defaultdict[str, set[str]] = defaultdict(set)
+        self.quiz_sessions: dict[str, QuizSessionRecord] = {}
+        self.quiz_session_questions: list[QuizSessionQuestionRecord] = []
         self._load_seed_data()
 
     # ------------------------------------------------------------------
@@ -363,6 +394,176 @@ class MemoryRepository:
         return 0
 
     # ------------------------------------------------------------------
+    # Recent questions (for quiz repeat reduction)
+    def list_recent_question_hashes(self, child_id: str, limit: int = 30) -> list[str]:
+        """Get question hashes from recent attempts (for repeat reduction window)."""
+        # Get child's attempts sorted by newest first
+        child_attempts = [
+            a for a in sorted(self.attempts, key=lambda x: x.created_at, reverse=True)
+            if a.child_id == child_id
+        ]
+
+        # Get hashes from most recent N attempts
+        recent_hashes = []
+        seen = set()
+        for attempt in child_attempts[:limit]:
+            question = self.questions.get(attempt.question_id)
+            if question and question.hash not in seen:
+                recent_hashes.append(question.hash)
+                seen.add(question.hash)
+
+        return recent_hashes
+
+    # ------------------------------------------------------------------
+    # Quiz Sessions
+    def create_quiz_session(
+        self, *,
+        child_id: str,
+        subject: str,
+        topic: str,
+        subtopic: str | None,
+        question_count: int,
+        duration_sec: int,
+        difficulty_mix: dict
+    ) -> dict:
+        """Create a new quiz session."""
+        session_id = str(uuid4())
+        now = datetime.utcnow()
+        record = QuizSessionRecord(
+            id=session_id,
+            child_id=child_id,
+            subject=subject,
+            topic=topic,
+            subtopic=subtopic,
+            status="active",
+            duration_sec=duration_sec,
+            difficulty_mix_config=difficulty_mix,
+            started_at=now,
+            total_questions=question_count,
+            created_at=now,
+        )
+        self.quiz_sessions[session_id] = record
+        return self._quiz_session_to_dict(record)
+
+    def get_quiz_session(self, session_id: str) -> dict | None:
+        """Get a quiz session by ID."""
+        record = self.quiz_sessions.get(session_id)
+        return self._quiz_session_to_dict(record) if record else None
+
+    def list_quiz_sessions(self, child_id: str, limit: int = 20, offset: int = 0) -> list[dict]:
+        """List quiz sessions for a child."""
+        sessions = [
+            s for s in self.quiz_sessions.values()
+            if s.child_id == child_id
+        ]
+        # Sort by started_at descending
+        sessions.sort(key=lambda x: x.started_at, reverse=True)
+        return [self._quiz_session_to_dict(s) for s in sessions[offset:offset + limit]]
+
+    def check_active_quiz(self, child_id: str, subject: str, topic: str) -> dict | None:
+        """Check if child has an active quiz for the given subject/topic."""
+        for session in self.quiz_sessions.values():
+            if (session.child_id == child_id and
+                session.subject == subject and
+                session.topic == topic and
+                session.status == "active"):
+                return self._quiz_session_to_dict(session)
+        return None
+
+    def create_quiz_session_questions(self, session_id: str, questions: list[dict]) -> list[dict]:
+        """Create quiz session questions."""
+        created = []
+        for q in questions:
+            record = QuizSessionQuestionRecord(
+                id=str(uuid4()),
+                quiz_session_id=session_id,
+                question_id=q["question_id"],
+                index=q["index"],
+                correct_choice=q["correct_choice"],
+                explanation=q.get("explanation", ""),
+            )
+            self.quiz_session_questions.append(record)
+            created.append(self._quiz_session_question_to_dict(record))
+        return created
+
+    def get_quiz_session_questions(self, session_id: str) -> list[dict]:
+        """Get all questions for a quiz session with full question details."""
+        session_questions = [
+            q for q in self.quiz_session_questions
+            if q.quiz_session_id == session_id
+        ]
+        session_questions.sort(key=lambda x: x.index)
+
+        # Join with full question data
+        result = []
+        for sq in session_questions:
+            question = self.questions.get(sq.question_id)
+            if question:
+                result.append({
+                    **self._quiz_session_question_to_dict(sq),
+                    "stem": question.stem,
+                    "options": question.options,
+                    "subject": question.subject,
+                    "topic": question.topic,
+                    "difficulty": question.difficulty,
+                })
+        return result
+
+    def submit_quiz_session(self, session_id: str, answers: list[dict]) -> dict:
+        """Submit answers for a quiz session."""
+        # Update quiz session questions with answers
+        for answer in answers:
+            for sq in self.quiz_session_questions:
+                if sq.quiz_session_id == session_id and sq.question_id == answer["question_id"]:
+                    sq.selected_choice = answer.get("selected_choice", "")
+                    sq.is_correct = answer.get("is_correct", False)
+
+        # Calculate score
+        session_questions = [q for q in self.quiz_session_questions if q.quiz_session_id == session_id]
+        correct_count = sum(1 for q in session_questions if q.is_correct)
+        total = len(session_questions)
+        score = round((correct_count / total) * 100) if total > 0 else 0
+
+        # Update session
+        session = self.quiz_sessions.get(session_id)
+        if session:
+            session.status = "completed"
+            session.submitted_at = datetime.utcnow()
+            session.score = score
+            return self._quiz_session_to_dict(session)
+        return {}
+
+    def expire_quiz_session(self, session_id: str) -> dict | None:
+        """Mark a quiz session as expired."""
+        session = self.quiz_sessions.get(session_id)
+        if session:
+            session.status = "expired"
+            return self._quiz_session_to_dict(session)
+        return None
+
+    # upsert_question method - used by quiz_selection for generated questions
+    def upsert_question(self, question: dict) -> dict:
+        """Insert or update a question."""
+        q_id = question.get("id") or str(uuid4())
+        record = QuestionRecord(
+            id=q_id,
+            standard_ref=question.get("standard_ref", ""),
+            subject=question.get("subject", ""),
+            grade=question.get("grade"),
+            topic=question.get("topic"),
+            sub_topic=question.get("subtopic"),
+            difficulty=question.get("difficulty"),
+            stem=question.get("stem", ""),
+            options=question.get("options", []),
+            correct_answer=question.get("correct_answer", ""),
+            rationale=question.get("rationale", ""),
+            source=question.get("source", "generated"),
+            hash=question.get("hash", ""),
+        )
+        self.questions[q_id] = record
+        return self._question_to_dict(record)
+
+    # ------------------------------------------------------------------
     # Helpers
     def _load_seed_data(self) -> None:
         standards_path = SEED_DIR / "seed_standards.json"
@@ -411,6 +612,37 @@ class MemoryRepository:
             "rationale": record.rationale,
             "source": record.source,
             "hash": record.hash,
+        }
+
+    @staticmethod
+    def _quiz_session_to_dict(record: QuizSessionRecord) -> dict[str, Any]:
+        return {
+            "id": record.id,
+            "child_id": record.child_id,
+            "subject": record.subject,
+            "topic": record.topic,
+            "subtopic": record.subtopic,
+            "status": record.status,
+            "duration_sec": record.duration_sec,
+            "difficulty_mix_config": record.difficulty_mix_config,
+            "started_at": record.started_at.isoformat() + "Z",
+            "submitted_at": record.submitted_at.isoformat() + "Z" if record.submitted_at else None,
+            "score": record.score,
+            "total_questions": record.total_questions,
+            "created_at": record.created_at.isoformat() + "Z" if record.created_at else record.started_at.isoformat() + "Z",
+        }
+
+    @staticmethod
+    def _quiz_session_question_to_dict(record: QuizSessionQuestionRecord) -> dict[str, Any]:
+        return {
+            "id": record.id,
+            "quiz_session_id": record.quiz_session_id,
+            "question_id": record.question_id,
+            "index": record.index,
+            "correct_choice": record.correct_choice,
+            "explanation": record.explanation,
+            "selected_choice": record.selected_choice,
+            "is_correct": record.is_correct,
         }
 
 
