@@ -218,20 +218,27 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {children.length === 0 ? (
-          <Card>
-            <div style={emptyStateStyles}>
-              <div style={emptyIconStyles}>👋</div>
-              <h3 style={theme.typography.styles.h3}>Welcome to StudyBuddy!</h3>
-              <p
-                style={{
-                  color: theme.colors.text.secondary,
-                  marginBottom: theme.spacing[4],
-                }}
-              >
-                Get started by adding your first child to begin their learning journey.
-              </p>
-            </div>
-          </Card>
+          <>
+            <Card>
+              <div style={emptyStateStyles}>
+                <div style={emptyIconStyles}>👋</div>
+                <h3 style={theme.typography.styles.h3}>Welcome to StudyBuddy!</h3>
+                <p
+                  style={{
+                    color: theme.colors.text.secondary,
+                    marginBottom: theme.spacing[4],
+                  }}
+                >
+                  Get started by adding your first child to begin their learning journey.
+                </p>
+              </div>
+            </Card>
+
+            {/* Show ChildrenPanel even when empty so user can add first child */}
+            <Card header="Add Your First Child" headerGradient style={{ marginTop: theme.spacing[6], maxWidth: '600px' }}>
+              <ChildrenPanel />
+            </Card>
+          </>
         ) : (
           <>
             {/* Quiz Mode Section */}
