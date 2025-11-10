@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { Card } from './Card';
 import { ErrorMessage } from './ErrorMessage';
+import { LoadingSpinner } from './LoadingSpinner';
 import { useQuiz } from '../contexts/QuizContext';
 import { useChildren } from '../contexts/ChildrenContext';
 import { standardsService } from '../services';
@@ -42,7 +43,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   // Handle Escape key to close modal
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !isLoading) {
         onClose();
       }
     };
@@ -51,7 +52,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isLoading]);
 
   // Load standards when subject changes
   useEffect(() => {
@@ -150,6 +151,8 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   };
 
   const handleClose = () => {
+    // Prevent closing during quiz creation
+    if (isLoading) return;
     clearError();
     onClose();
   };
@@ -401,6 +404,16 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
           </form>
         </Card>
       </div>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div style={styles.loadingOverlay}>
+          <div style={styles.loadingContent}>
+            <LoadingSpinner size="lg" />
+            <p style={styles.loadingText}>Creating your quiz...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -585,5 +598,30 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'flex-end',
     paddingTop: theme.spacing[4],
     borderTop: `1px solid ${theme.colors.gray[200]}`,
+  },
+  loadingOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1002, // Above modal (1001)
+  },
+  loadingContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: theme.spacing[4],
+  },
+  loadingText: {
+    fontFamily: theme.typography.fonts.body,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: '#ffffff',
+    margin: 0,
   },
 };
