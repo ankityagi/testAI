@@ -1,6 +1,7 @@
 """Dependency wiring for database and auth clients."""
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status
@@ -29,6 +30,21 @@ def get_current_parent(
     if parent is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return Parent(**parent)
+
+
+def check_quiz_mode_enabled() -> None:
+    """
+    Check if quiz mode is enabled via feature flag.
+
+    Raises HTTPException if quiz mode is disabled.
+    Set STUDYBUDDY_QUIZ_MODE_ENABLED=1 to enable.
+    """
+    enabled = os.getenv("STUDYBUDDY_QUIZ_MODE_ENABLED", "1").lower() in ("1", "true", "yes")
+    if not enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Quiz mode is currently disabled"
+        )
 
 
 def reset_repository_cache() -> None:

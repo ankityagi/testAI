@@ -82,9 +82,9 @@ export const QuizPage: React.FC = () => {
   };
 
   const getTimerColor = (): string => {
-    if (percentTimeRemaining > 50) return theme.colors.success[500];
-    if (percentTimeRemaining > 25) return theme.colors.warning[500];
-    return theme.colors.error[500];
+    if (percentTimeRemaining > 50) return theme.colors.success[600];
+    if (percentTimeRemaining > 25) return theme.colors.warning[700]; // Darker for better contrast
+    return theme.colors.error[600];
   };
 
   if (isLoading) {
@@ -174,6 +174,14 @@ export const QuizPage: React.FC = () => {
                   ...styles.navButton,
                   ...(answers[q.id] ? styles.navButtonAnswered : {}),
                 }}
+                onFocus={(e) => {
+                  e.currentTarget.style.outline = `3px solid ${theme.colors.primary[500]}`;
+                  e.currentTarget.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.outline = 'none';
+                  e.currentTarget.style.outlineOffset = '0';
+                }}
               >
                 {idx + 1}
               </button>
@@ -203,36 +211,37 @@ export const QuizPage: React.FC = () => {
                 )}
               </div>
 
-              <p style={styles.questionStem}>{question.stem}</p>
+              <fieldset style={styles.fieldset}>
+                <legend style={styles.legend}>{question.stem}</legend>
+                <div style={styles.optionsContainer}>
+                  {question.options.map((option, optionIdx) => {
+                    const optionId = `q${question.id}-opt${optionIdx}`;
+                    const isSelected = answers[question.id] === option;
 
-              <div style={styles.optionsContainer}>
-                {question.options.map((option, optionIdx) => {
-                  const optionId = `q${question.id}-opt${optionIdx}`;
-                  const isSelected = answers[question.id] === option;
-
-                  return (
-                    <label
-                      key={optionIdx}
-                      htmlFor={optionId}
-                      style={{
-                        ...styles.optionLabel,
-                        ...(isSelected ? styles.optionLabelSelected : {}),
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        id={optionId}
-                        name={`question-${question.id}`}
-                        value={option}
-                        checked={isSelected}
-                        onChange={() => selectAnswer(question.id, option)}
-                        style={styles.radioInput}
-                      />
-                      <span style={styles.optionText}>{option}</span>
-                    </label>
-                  );
-                })}
-              </div>
+                    return (
+                      <label
+                        key={optionIdx}
+                        htmlFor={optionId}
+                        style={{
+                          ...styles.optionLabel,
+                          ...(isSelected ? styles.optionLabelSelected : {}),
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          id={optionId}
+                          name={`question-${question.id}`}
+                          value={option}
+                          checked={isSelected}
+                          onChange={() => selectAnswer(question.id, option)}
+                          style={styles.radioInput}
+                        />
+                        <span style={styles.optionText}>{option}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
             </Card>
           </div>
         ))}
@@ -410,6 +419,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: theme.typography.fontWeight.medium,
     cursor: 'pointer',
     transition: theme.animations.transition.all,
+    outline: 'none', // Handled by onFocus/onBlur
   },
   navButtonAnswered: {
     backgroundColor: theme.colors.primary[500],
@@ -456,6 +466,21 @@ const styles: Record<string, React.CSSProperties> = {
     color: theme.colors.text.primary,
     lineHeight: theme.typography.lineHeight.relaxed,
     marginBottom: theme.spacing[4],
+  },
+  fieldset: {
+    border: 'none',
+    margin: 0,
+    padding: 0,
+    minWidth: 0, // Reset browser default
+  },
+  legend: {
+    fontFamily: theme.typography.fonts.body,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.text.primary,
+    lineHeight: theme.typography.lineHeight.relaxed,
+    marginBottom: theme.spacing[4],
+    padding: 0,
   },
   optionsContainer: {
     display: 'flex',
