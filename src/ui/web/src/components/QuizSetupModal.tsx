@@ -24,7 +24,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   const { selectedChild } = useChildren();
 
   // Form state
-  const [subject, setSubject] = useState('Mathematics');
+  const [subject, setSubject] = useState('math');
   const [topic, setTopic] = useState('');
   const [subtopic, setSubtopic] = useState('');
   const [questionCount, setQuestionCount] = useState(10);
@@ -38,7 +38,12 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   const [isLoadingStandards, setIsLoadingStandards] = useState(false);
   const [standardsError, setStandardsError] = useState<string | null>(null);
 
-  const subjects = ['Mathematics', 'English Language Arts', 'Science', 'Social Studies'];
+  const subjects = [
+    { value: 'math', label: 'Mathematics' },
+    { value: 'reading', label: 'English Language Arts' },
+    { value: 'science', label: 'Science' },
+    { value: 'writing', label: 'Writing' },
+  ];
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -192,8 +197,8 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
                 required
               >
                 {subjects.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                  <option key={s.value} value={s.value}>
+                    {s.label}
                   </option>
                 ))}
               </select>
