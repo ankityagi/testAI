@@ -61,13 +61,15 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
 
   // Load standards when subject changes
   useEffect(() => {
-    if (!selectedChild || !subject) return;
+    if (!subject) return;
 
     const loadStandards = async () => {
       setIsLoadingStandards(true);
       setStandardsError(null);
       try {
-        const data = await standardsService.list(subject, selectedChild.grade || undefined);
+        // Don't filter by grade - topics should be available for all grades
+        // Grade filtering happens when selecting questions
+        const data = await standardsService.list(subject);
         setStandards(data || []); // Ensure it's always an array
         // Reset topic when standards change
         setTopic('');
@@ -82,7 +84,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     };
 
     loadStandards();
-  }, [subject, selectedChild]);
+  }, [subject]);
 
   // Get unique topics from standards (with robust type check)
   const safeStandards = Array.isArray(standards) ? standards : [];
