@@ -53,25 +53,18 @@ def create_app() -> FastAPI:
     if REACT_BUILD_DIR.exists():
         app.mount("/assets", StaticFiles(directory=REACT_BUILD_DIR / "assets"), name="react-assets")
 
-        # Serve index.html for root
+        # Serve index.html for root and known client-side routes
         @app.get("/")
         async def serve_root():
             return FileResponse(REACT_BUILD_DIR / "index.html")
 
-        # Handle 404s - serve React app for client-side routes, but not for API paths
-        @app.exception_handler(StarletteHTTPException)
-        async def custom_404_handler(request: Request, exc: StarletteHTTPException):
-            if exc.status_code == 404:
-                # Check if this is an API path
-                api_prefixes = ("/auth", "/children", "/questions", "/attempts", "/progress",
-                              "/sessions", "/quiz", "/standards", "/admin", "/health")
-                if any(request.url.path.startswith(prefix) for prefix in api_prefixes):
-                    # Return API 404 for API routes
-                    return exc
-
-                # Serve React index.html for client-side routes
-                return FileResponse(REACT_BUILD_DIR / "index.html")
-            return exc
+        # Explicitly define React routes (client-side routes)
+        @app.get("/auth")
+        @app.get("/dashboard")
+        @app.get("/quiz/{session_id}")
+        @app.get("/quiz/{session_id}/results")
+        async def serve_react_routes():
+            return FileResponse(REACT_BUILD_DIR / "index.html")
 
     return app
 
