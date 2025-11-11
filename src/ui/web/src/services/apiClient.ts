@@ -47,6 +47,15 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ApiError>) => {
+        // Log API errors for debugging (except 401s which are expected when not logged in)
+        if (error.response?.status !== 401) {
+          console.error('[API Error]', {
+            url: error.config?.url,
+            status: error.response?.status,
+            detail: error.response?.data?.detail,
+          });
+        }
+
         if (error.response) {
           // Server responded with error status
           const apiError: ApiError = {
@@ -60,9 +69,15 @@ class ApiClient {
             // Redirect to login handled by calling code
           }
 
+          // Handle 403 Forbidden
+          if (error.response.status === 403) {
+            console.warn('[API] 403 Forbidden:', error.config?.url);
+          }
+
           return Promise.reject(apiError);
         } else if (error.request) {
           // Request made but no response received
+          console.error('[API] Network error:', error.config?.url);
           return Promise.reject({
             detail: 'Network error. Please check your connection.',
             status: 0,
