@@ -21,7 +21,24 @@ def list_standards(
 
     # Apply filters if provided
     if subject:
-        standards = [s for s in standards if s.get('subject', '').lower() == subject.lower()]
+        # Normalize subject names for matching
+        subject_normalized = subject.lower().strip()
+
+        # Map common variations
+        subject_mappings = {
+            'mathematics': 'math',
+            'english language arts': 'reading',
+            'ela': 'reading',
+        }
+
+        # Use mapping if available, otherwise use normalized form
+        search_subject = subject_mappings.get(subject_normalized, subject_normalized)
+
+        standards = [
+            s for s in standards
+            if s.get('subject', '').lower() == search_subject
+        ]
+
     if grade is not None:
         standards = [s for s in standards if s.get('grade') == grade]
 
