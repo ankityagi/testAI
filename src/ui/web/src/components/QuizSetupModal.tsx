@@ -24,7 +24,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   const { selectedChild } = useChildren();
 
   // Form state
-  const [subject, setSubject] = useState('math');
+  const [subject, setSubject] = useState('Mathematics');
   const [topic, setTopic] = useState('');
   const [subtopic, setSubtopic] = useState('');
   const [questionCount, setQuestionCount] = useState(10);
@@ -38,12 +38,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
   const [isLoadingStandards, setIsLoadingStandards] = useState(false);
   const [standardsError, setStandardsError] = useState<string | null>(null);
 
-  const subjects = [
-    { value: 'math', label: 'Mathematics' },
-    { value: 'reading', label: 'English Language Arts' },
-    { value: 'science', label: 'Science' },
-    { value: 'writing', label: 'Writing' },
-  ];
+  const subjects = ['Mathematics', 'English Language Arts', 'Science', 'Social Studies'];
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -61,19 +56,44 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
 
   // Load standards when subject changes
   useEffect(() => {
-    if (!subject) return;
+    if (!selectedChild || !subject) {
+      console.log('[QuizSetupModal] Skipping standards load - missing child or subject', {
+        hasChild: !!selectedChild,
+        subject,
+      });
+      return;
+    }
 
     const loadStandards = async () => {
-      console.log('[QuizSetupModal] Loading standards for subject:', subject);
+      console.log('[QuizSetupModal] Loading standards...', {
+        subject,
+        grade: selectedChild.grade,
+        childName: selectedChild.name,
+      });
+
       setIsLoadingStandards(true);
       setStandardsError(null);
       try {
-        // Don't filter by grade - topics should be available for all grades
-        // Grade filtering happens when selecting questions
-        const data = await standardsService.list(subject);
-        console.log('[QuizSetupModal] Received standards data:', data);
-        console.log('[QuizSetupModal] Standards count:', data?.length || 0);
+        const data = await standardsService.list(subject, selectedChild.grade || undefined);
+
+        console.log('[QuizSetupModal] Standards received from API:', {
+          count: data?.length || 0,
+          isArray: Array.isArray(data),
+          sampleData: data?.slice(0, 2), // Log first 2 for inspection
+        });
+
         setStandards(data || []); // Ensure it's always an array
+
+        // Log extracted domains (topics)
+        const extractedDomains = data
+          ? Array.from(new Set(data.map((s) => s.domain).filter(Boolean)))
+          : [];
+
+        console.log('[QuizSetupModal] Extracted topics from standards:', {
+          topicCount: extractedDomains.length,
+          topics: extractedDomains,
+        });
+
         // Reset topic when standards change
         setTopic('');
         setSubtopic('');
@@ -87,15 +107,11 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     };
 
     loadStandards();
-  }, [subject]);
+  }, [subject, selectedChild]);
 
   // Get unique topics from standards (with robust type check)
   const safeStandards = Array.isArray(standards) ? standards : [];
   const topics = Array.from(new Set(safeStandards.map((s) => s.domain).filter(Boolean))) as string[];
-
-  // Debug logging
-  console.log('[QuizSetupModal] safeStandards:', safeStandards);
-  console.log('[QuizSetupModal] Extracted topics:', topics);
 
   // Get subtopics for selected topic (with robust type check)
   const subtopics = Array.from(
@@ -206,8 +222,8 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
                 required
               >
                 {subjects.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
+                  <option key={s} value={s}>
+                    {s}
                   </option>
                 ))}
               </select>
