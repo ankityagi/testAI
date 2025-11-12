@@ -3,10 +3,9 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 
 from .routes import admin, attempts, children, health, progress, questions, quiz, sessions, standards, auth
@@ -49,22 +48,36 @@ def create_app() -> FastAPI:
     app.include_router(standards.router, prefix="/standards", tags=["standards"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
-    # Serve React static assets
+    # Serve React static assets (JS, CSS, images)
     if REACT_BUILD_DIR.exists():
         app.mount("/assets", StaticFiles(directory=REACT_BUILD_DIR / "assets"), name="react-assets")
 
-        # Serve index.html for root and known client-side routes
-        @app.get("/")
-        async def serve_root():
-            return FileResponse(REACT_BUILD_DIR / "index.html")
+        # Catch-all route for React app (must be last)
+        @app.get("/{full_path:path}")
+        async def serve_react_app(full_path: str):
+            """
+            Serve React app for all non-API routes to support client-side routing.
 
-        # Explicitly define React routes (client-side routes)
-        @app.get("/auth")
-        @app.get("/dashboard")
-        @app.get("/quiz/{session_id}")
-        @app.get("/quiz/{session_id}/results")
-        async def serve_react_routes():
-            return FileResponse(REACT_BUILD_DIR / "index.html")
+            This catches all GET requests that don't match API routes above.
+            API routes are explicitly excluded to prevent conflict.
+            """
+            # Exclude API routes from catch-all
+            api_prefixes = [
+                "health", "auth", "children", "questions", "attempts",
+                "progress", "sessions", "quiz", "standards", "admin"
+            ]
+
+            # Check if this path starts with any API prefix
+            path_parts = full_path.split("/")
+            if path_parts and path_parts[0] in api_prefixes:
+                # This is an API route that wasn't matched - return 404
+                return {"error": f"API endpoint not found: /{full_path}"}
+
+            # Serve React app for non-API routes
+            index_file = REACT_BUILD_DIR / "index.html"
+            if index_file.exists():
+                return FileResponse(index_file)
+            return {"error": "React app not found"}
 
     return app
 
