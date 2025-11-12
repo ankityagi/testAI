@@ -77,17 +77,21 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
         const data = await standardsService.list(subject, selectedChild.grade || undefined);
 
         console.log('[QuizSetupModal] Standards received from API:', {
-          count: data?.length || 0,
+          rawData: data,
+          type: typeof data,
           isArray: Array.isArray(data),
-          sampleData: data?.slice(0, 2), // Log first 2 for inspection
+          count: Array.isArray(data) ? data.length : 'N/A',
+          sampleData: Array.isArray(data) ? data.slice(0, 2) : 'Not an array',
         });
 
-        setStandards(data || []); // Ensure it's always an array
+        // Ensure data is an array
+        const standardsArray = Array.isArray(data) ? data : [];
+        setStandards(standardsArray);
 
         // Log extracted domains (topics)
-        const extractedDomains = data
-          ? Array.from(new Set(data.map((s) => s.domain).filter(Boolean)))
-          : [];
+        const extractedDomains = Array.from(
+          new Set(standardsArray.map((s) => s.domain).filter(Boolean))
+        );
 
         console.log('[QuizSetupModal] Extracted topics from standards:', {
           topicCount: extractedDomains.length,
