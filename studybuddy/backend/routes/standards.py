@@ -19,6 +19,11 @@ def list_standards(
     parent: Parent = Depends(deps.get_current_parent),
     repo: Repository = Depends(deps.get_repository),
 ) -> list[Standard]:
+    # Debug: Verify function is called
+    print(f"\n{'='*80}", flush=True)
+    print(f"[STANDARDS ENDPOINT HIT] subject={subject}, grade={grade}", flush=True)
+    print(f"{'='*80}\n", flush=True)
+
     logger.info(f"[STANDARDS] Request: subject={subject}, grade={grade}")
 
     standards = repo.list_standards()
