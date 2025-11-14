@@ -81,7 +81,9 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
       setIsLoadingStandards(true);
       setStandardsError(null);
       try {
+        console.log('[QuizSetupModal] About to call standardsService.list()...');
         const data = await standardsService.list(subject, selectedChild.grade || undefined);
+        console.log('[QuizSetupModal] standardsService.list() returned!');
 
         console.log('[QuizSetupModal] Standards received from API:', {
           rawData: data,
@@ -110,14 +112,20 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
         setSubtopic('');
       } catch (err) {
         console.error('[QuizSetupModal] Failed to load standards:', err);
+        console.error('[QuizSetupModal] Error type:', typeof err);
+        console.error('[QuizSetupModal] Error details:', err);
         setStandardsError('Failed to load topics');
         setStandards([]); // Reset to empty array on error
       } finally {
+        console.log('[QuizSetupModal] Finally block - loading complete');
         setIsLoadingStandards(false);
       }
     };
 
-    loadStandards();
+    console.log('[QuizSetupModal] About to call loadStandards()...');
+    loadStandards()
+      .then(() => console.log('[QuizSetupModal] loadStandards() completed'))
+      .catch(err => console.error('[QuizSetupModal] loadStandards() promise rejected:', err));
   }, [isOpen, subject, selectedChild]); // Added isOpen dependency!
 
   // Get unique topics from standards (with robust type check)
