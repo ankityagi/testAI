@@ -1,4 +1,5 @@
 """FastAPI entrypoint for studybuddy backend."""
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,13 @@ from fastapi.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
 from .routes import admin, attempts, children, health, progress, questions, quiz, sessions, standards, auth
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True
+)
 
 # Load environment variables from .env file
 load_dotenv()
