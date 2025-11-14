@@ -54,8 +54,14 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     }
   }, [isOpen, onClose, isLoading]);
 
-  // Load standards when subject changes
+  // Load standards when modal opens or subject changes
   useEffect(() => {
+    // Only load when modal is open
+    if (!isOpen) {
+      console.log('[QuizSetupModal] Modal closed - skipping standards load');
+      return;
+    }
+
     if (!selectedChild || !subject) {
       console.log('[QuizSetupModal] Skipping standards load - missing child or subject', {
         hasChild: !!selectedChild,
@@ -69,6 +75,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
         subject,
         grade: selectedChild.grade,
         childName: selectedChild.name,
+        modalOpen: isOpen,
       });
 
       setIsLoadingStandards(true);
@@ -111,7 +118,7 @@ export const QuizSetupModal: React.FC<QuizSetupModalProps> = ({ isOpen, onClose 
     };
 
     loadStandards();
-  }, [subject, selectedChild]);
+  }, [isOpen, subject, selectedChild]); // Added isOpen dependency!
 
   // Get unique topics from standards (with robust type check)
   const safeStandards = Array.isArray(standards) ? standards : [];
