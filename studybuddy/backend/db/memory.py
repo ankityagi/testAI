@@ -196,6 +196,27 @@ class MemoryRepository:
     def list_standards(self) -> list[dict[str, Any]]:
         return self.standards
 
+    def insert_standard(self, subject: str, grade: int, domain: str, sub_domain: str,
+                       standard_ref: str, title: str, description: str) -> None:
+        """Insert a single standard into memory."""
+        # Check if standard already exists
+        existing = any(s.get("standard_ref") == standard_ref for s in self.standards)
+        if existing:
+            print(f"[INSERT_STANDARD] Standard {standard_ref} already exists, skipping")
+            return
+
+        standard = {
+            "id": len(self.standards) + 1,
+            "subject": subject,
+            "grade": grade,
+            "domain": domain,
+            "sub_domain": sub_domain,
+            "standard_ref": standard_ref,
+            "title": title,
+            "description": description
+        }
+        self.standards.append(standard)
+
     # ------------------------------------------------------------------
     # Questions & attempts
     def list_child_attempts(self, child_id: str) -> list[dict[str, Any]]:

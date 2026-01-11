@@ -212,6 +212,33 @@ class PostgresRepository:
         finally:
             conn.close()
 
+    def insert_standard(self, subject: str, grade: int, domain: str, sub_domain: str,
+                       standard_ref: str, title: str, description: str) -> None:
+        """Insert a single standard into the database."""
+        conn = self.get_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Check if standard already exists
+                cur.execute(
+                    "SELECT id FROM standards WHERE standard_ref = %s",
+                    (standard_ref,)
+                )
+                existing = cur.fetchone()
+                if existing:
+                    print(f"[INSERT_STANDARD] Standard {standard_ref} already exists, skipping")
+                    return
+
+                cur.execute(
+                    """
+                    INSERT INTO standards (subject, grade, domain, sub_domain, standard_ref, title, description)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (subject, grade, domain, sub_domain, standard_ref, title, description)
+                )
+                conn.commit()
+        finally:
+            conn.close()
+
     def list_child_attempts(self, child_id: str) -> list[dict]:
         conn = self.get_connection()
         try:

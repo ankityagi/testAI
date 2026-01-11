@@ -218,18 +218,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {children.length === 0 ? (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(320px, 400px) 1fr',
-            gap: theme.spacing[6],
-            alignItems: 'start',
-          }}>
-            {/* Add Child panel on the left */}
-            <Card header="Add Your First Child" headerGradient>
-              <ChildrenPanel />
-            </Card>
-
-            {/* Welcome panel on the right */}
+          <>
             <Card>
               <div style={emptyStateStyles}>
                 <div style={emptyIconStyles}>👋</div>
@@ -244,7 +233,12 @@ export const Dashboard: React.FC = () => {
                 </p>
               </div>
             </Card>
-          </div>
+
+            {/* Show ChildrenPanel even when empty so user can add first child */}
+            <Card header="Add Your First Child" headerGradient style={{ marginTop: theme.spacing[6], maxWidth: '600px' }}>
+              <ChildrenPanel />
+            </Card>
+          </>
         ) : (
           <>
             {/* Quiz Mode Section */}
