@@ -8,11 +8,16 @@ from .. import deps
 from ..db.repository import Repository
 from ..models import Parent, Standard
 
+# DEBUG: This prints when module is IMPORTED (should appear on startup)
+print("\n" + "="*80, flush=True)
+print("🔥 STANDARDS.PY MODULE LOADED - NEW CODE IS ACTIVE 🔥", flush=True)
+print("="*80 + "\n", flush=True)
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=list[Standard])
+@router.get("", response_model=list[Standard])
 def list_standards(
     subject: Optional[str] = Query(None, description="Filter by subject"),
     grade: Optional[int] = Query(None, ge=0, le=12, description="Filter by grade"),
